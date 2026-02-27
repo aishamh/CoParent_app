@@ -21,6 +21,8 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import TestPage from "@/pages/TestPage";
 import DebugAuth from "@/pages/DebugAuth";
+import OnboardingPage from "@/pages/OnboardingPage";
+import DiscoverPage from "@/pages/DiscoverPage";
 
 function Router() {
   return (
@@ -32,6 +34,7 @@ function Router() {
       <Route path="/expenses" component={ExpensesPage} />
       <Route path="/documents" component={DocumentsPage} />
       <Route path="/activities" component={ActivitiesPage} />
+      <Route path="/discover" component={DiscoverPage} />
       <Route path="/social" component={SocialPage} />
       <Route path="/education" component={EducationPage} />
       <Route path="/settings" component={SettingsPage} />
@@ -39,6 +42,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/test" component={TestPage} />
       <Route path="/debug-auth" component={DebugAuth} />
+      <Route path="/onboarding" component={OnboardingPage} />
       <Route component={NotFound} />
     </Switch>
   );
