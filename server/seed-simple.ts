@@ -1,5 +1,5 @@
 import { db } from "./db";
-import * as schema from "@shared/schema";
+import * as schema from "../shared/schema";
 import { hashPassword } from "./auth";
 
 async function seed() {

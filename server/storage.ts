@@ -23,7 +23,7 @@ import {
   type InsertMessage,
   type Document,
   type InsertDocument,
-} from "@shared/schema";
+} from "../shared/schema";
 import {
   users,
   children,

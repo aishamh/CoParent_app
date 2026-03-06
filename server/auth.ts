@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import type { User } from '@shared/schema';
+import type { User } from '../shared/schema';
 import type { Request, Response, NextFunction } from 'express';
 
 const SALT_ROUNDS = 10;

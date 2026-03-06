@@ -20,7 +20,7 @@ import {
   insertExpenseSchema,
   insertMessageSchema,
   insertDocumentSchema
-} from "@shared/schema";
+} from "../shared/schema";
 
 // Configure multer with memory storage (files uploaded to Vercel Blob)
 const upload = multer({
