@@ -21,7 +21,6 @@ uploads/
 
 # Build artifacts
 .local/
-api/index.js
 
 # IDE
 .vscode/
