@@ -2,9 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30,
-      "includeFiles": "{server,shared}/**"
+    "api/index.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
