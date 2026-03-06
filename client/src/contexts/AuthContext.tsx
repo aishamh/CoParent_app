@@ -1,13 +1,17 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session, AuthError } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
+import type { Profile } from "@shared/schema";
+import { authLogin, authRegister, authLogout, authGetMe, setAuthToken, getAuthToken } from "@/lib/api";
+
+interface AuthError {
+  message: string;
+  name: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signIn: (username: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, metadata?: { username?: string; role?: string }) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -17,47 +21,42 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    const token = getAuthToken();
+    if (!token) {
       setLoading(false);
-    });
+      return;
+    }
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    const profile = await authGetMe();
+    if (profile) {
+      setUser(profile);
+    } else {
+      setAuthToken(null);
+    }
+    setLoading(false);
+  }
 
-      // Redirect to login on sign out
-      if (_event === 'SIGNED_OUT') {
-        navigate('/login');
-      }
-
-      // Redirect to dashboard on sign in (if on login/register page)
-      if (_event === 'SIGNED_IN' && (location === '/login' || location === '/register')) {
-        navigate('/dashboard');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [location]);
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+  const signIn = async (username: string, password: string) => {
+    try {
+      const result = await authLogin(username, password);
+      setAuthToken(result.token);
+      const profile = await authGetMe();
+      setUser(profile);
+      navigate("/dashboard");
+      return { error: null };
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Login failed";
+      return { error: { message, name: "LoginError" } };
+    }
   };
 
   const signUp = async (
@@ -66,80 +65,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     metadata?: { username?: string; role?: string }
   ) => {
     try {
-      // Sign up with email confirmation
-      const { data, error } = await supabase.auth.signUp({
+      const result = await authRegister({
+        username: metadata?.username || email.split("@")[0],
         email,
         password,
-        options: {
-          data: metadata,
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
+        display_name: metadata?.username || email.split("@")[0],
+        role: metadata?.role || "parent_a",
       });
-
-      if (error) {
-        // Log error for debugging
-        console.error('Sign up error:', error);
-
-        // Provide helpful error messages
-        if (error.message.includes('User already registered')) {
-          return {
-            error: {
-              message: "An account with this email already exists. Please try logging in or use a different email address.",
-              name: error.name,
-            } as AuthError,
-          };
-        }
-
-        return { error };
-      }
-
-      // Success - check if email confirmation is needed
-      if (data.user && !data.user.email_confirmed_at) {
-        // Email confirmation is required
-        console.log('User created, email confirmation required');
-        return {
-          error: {
-            message: "Account created! Please check your email inbox (and spam folder) for a verification link. Click the link to activate your account.",
-            name: "EmailNotConfirmed",
-            userCreated: true,
-          } as AuthError,
-        };
-      }
-
-      // Email confirmation disabled - user is ready to login
+      setAuthToken(result.token);
+      const profile = await authGetMe();
+      setUser(profile);
+      navigate("/dashboard");
       return { error: null };
-    } catch (e: any) {
-      console.error('Sign up exception:', e);
-      return {
-        error: {
-          message: e.message || "An unexpected error occurred. Please try again.",
-          name: "SignUpError",
-        } as AuthError,
-      };
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Registration failed";
+      return { error: { message, name: "SignUpError" } };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authLogout();
+    setUser(null);
+    navigate("/login");
   };
 
-  const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return { error };
+  const resetPassword = async (_email: string) => {
+    // Not available with custom JWT auth — would need email service
+    return {
+      error: {
+        message: "Password reset is not yet available. Please contact support.",
+        name: "NotImplemented",
+      },
+    };
   };
 
-  const updatePassword = async (newPassword: string) => {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-    return { error };
+  const updatePassword = async (_newPassword: string) => {
+    // Would need a dedicated endpoint
+    return {
+      error: {
+        message: "Password update is not yet available.",
+        name: "NotImplemented",
+      },
+    };
   };
 
   const value = {
     user,
-    session,
     loading,
     signIn,
     signUp,

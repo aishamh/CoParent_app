@@ -114,8 +114,13 @@
   * {
     @apply border-border;
   }
+  html {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-bold;

@@ -5,34 +5,34 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Users, ArrowRight, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabaseApi } from "@/lib/supabase";
+import { api } from "@/lib/api";
 
 export default function ActivitySuggestions() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const addToPlanMutation = useMutation({
-    mutationFn: async (eventData: any) => {
-      const supabaseEvent = {
-        child_id: eventData.childId || null,
-        title: eventData.title,
-        start_date: eventData.startDate,
-        end_date: eventData.endDate,
-        start_time: eventData.startTime,
-        end_time: eventData.endTime,
-        time_zone: eventData.timeZone || 'Europe/Oslo',
-        parent: eventData.parent || 'A',
-        type: eventData.type || 'custody',
-        description: eventData.description || null,
-        location: eventData.location || null,
+    mutationFn: async (eventData: Record<string, unknown>) => {
+      const newEvent = {
+        child_id: (eventData.child_id as number | null) || null,
+        title: eventData.title as string,
+        start_date: eventData.start_date as string,
+        end_date: eventData.end_date as string,
+        start_time: (eventData.start_time as string) || "00:00",
+        end_time: (eventData.end_time as string) || "23:59",
+        time_zone: (eventData.time_zone as string) || "Europe/Oslo",
+        parent: (eventData.parent as string) || "A",
+        type: (eventData.type as string) || "custody",
+        description: (eventData.description as string | null) || null,
+        location: (eventData.location as string | null) || null,
         recurrence: null,
         recurrence_interval: 1,
         recurrence_end: null,
         recurrence_days: null,
       };
-      const { data, error } = await supabaseApi.createEvent(supabaseEvent);
-      if (error) throw error;
-      return data;
+      const result = await api.createEvent(newEvent);
+      if (!result) throw new Error("Failed to create event");
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -41,7 +41,7 @@ export default function ActivitySuggestions() {
         description: "The activity has been added to your calendar.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Error adding activity:", error);
       toast({
         variant: "destructive",
@@ -52,16 +52,17 @@ export default function ActivitySuggestions() {
   });
 
   const handleAddToPlan = (activity: typeof SUGGESTED_ACTIVITIES[0]) => {
-    const eventData = {
-      childId: 1, // Default to first child if no child selected (child_id is NOT NULL in database)
+    const today = new Date().toISOString().split("T")[0];
+    const eventData: Record<string, unknown> = {
+      child_id: null,
       title: activity.title,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      startTime: "09:00",
-      endTime: "10:00",
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      parent: "A" as const,
-      type: "custody" as const,
+      start_date: today,
+      end_date: today,
+      start_time: "09:00",
+      end_time: "10:00",
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      parent: "A",
+      type: "custody",
       description: activity.description,
       location: "",
     };

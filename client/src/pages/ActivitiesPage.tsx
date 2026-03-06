@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getActivities, getChildren } from "@/lib/api";
-import { supabaseApi } from "@/lib/supabase";
+import { getActivities, getChildren, api } from "@/lib/api";
+import type { Activity } from "@shared/schema";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,25 @@ interface OsloEvent {
   url?: string;
 }
 
+/** Union-friendly shape for the "View Details" dialog. */
+interface ViewableActivity {
+  id: string | number;
+  name?: string;
+  title?: string;
+  category: string;
+  description: string;
+  image?: string | null;
+  address?: string;
+  location?: string;
+  distance?: number;
+  date?: string;
+  time?: string;
+  duration?: string;
+  price?: string;
+  rating?: number;
+  url?: string;
+}
+
 export default function ActivitiesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -58,7 +77,7 @@ export default function ActivitiesPage() {
   const [citySearchQuery, setCitySearchQuery] = useState("");
   const [isAddToPlanOpen, setIsAddToPlanOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<{ name: string; description: string; type: string } | null>(null);
-  const [viewDetailsActivity, setViewDetailsActivity] = useState<NearbyActivity | OsloEvent | any | null>(null);
+  const [viewDetailsActivity, setViewDetailsActivity] = useState<ViewableActivity | null>(null);
   const [planFormData, setPlanFormData] = useState({
     date: "",
     startTime: "",
@@ -67,7 +86,7 @@ export default function ActivitiesPage() {
   });
   const [activityImages, setActivityImages] = useState<Record<string, string>>({});
 
-  const { data: activities = [], isLoading } = useQuery({
+  const { data: activities = [], isLoading } = useQuery<Activity[]>({
     queryKey: ["activities"],
     queryFn: () => getActivities()
   });
@@ -78,29 +97,28 @@ export default function ActivitiesPage() {
   });
 
   const addToPlanMutation = useMutation({
-    mutationFn: async (eventData: any) => {
-      // Transform the data to match Supabase schema
-      const supabaseEvent = {
-        child_id: eventData.childId || null,
-        title: eventData.title,
-        start_date: eventData.startDate,
-        end_date: eventData.endDate,
-        start_time: eventData.startTime,
-        end_time: eventData.endTime,
-        time_zone: eventData.timeZone || 'Europe/Oslo',
-        parent: eventData.parent || 'A',
-        type: eventData.type || 'activity',
-        description: eventData.description || null,
-        location: eventData.location || null,
-        recurrence: eventData.recurrence || null,
-        recurrence_interval: eventData.recurrenceInterval || 1,
-        recurrence_end: eventData.recurrenceEnd || null,
-        recurrence_days: eventData.recurrenceDays || null,
+    mutationFn: async (eventData: Record<string, unknown>) => {
+      const newEvent = {
+        child_id: (eventData.child_id as number | null) || null,
+        title: eventData.title as string,
+        start_date: eventData.start_date as string,
+        end_date: eventData.end_date as string,
+        start_time: (eventData.start_time as string) || "00:00",
+        end_time: (eventData.end_time as string) || "23:59",
+        time_zone: (eventData.time_zone as string) || "Europe/Oslo",
+        parent: (eventData.parent as string) || "A",
+        type: (eventData.type as string) || "activity",
+        description: (eventData.description as string | null) || null,
+        location: (eventData.location as string | null) || null,
+        recurrence: (eventData.recurrence as string | null) || null,
+        recurrence_interval: (eventData.recurrence_interval as number) || 1,
+        recurrence_end: (eventData.recurrence_end as string | null) || null,
+        recurrence_days: (eventData.recurrence_days as string | null) || null,
       };
 
-      const { data, error } = await supabaseApi.createEvent(supabaseEvent);
-      if (error) throw error;
-      return data;
+      const result = await api.createEvent(newEvent);
+      if (!result) throw new Error("Failed to create event");
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -112,7 +130,7 @@ export default function ActivitiesPage() {
       setPlanFormData({ date: "", startTime: "", endTime: "", childId: 0 });
       setSelectedActivity(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Error adding activity:", error);
       toast({
         variant: "destructive",
@@ -438,8 +456,9 @@ export default function ActivitiesPage() {
         const { getOsloEvents } = await import("@/lib/api");
         const data = await getOsloEvents();
 
-        // Transform the API response
-        const events: OsloEvent[] = (data.items || data.data || []).slice(0, 12).map((event: any, index: number) => {
+        // Transform the API response -- external API data has unpredictable shape
+        const rawItems = (Array.isArray(data.items) ? data.items : Array.isArray(data.data) ? data.data : []) as any[];
+        const events: OsloEvent[] = rawItems.slice(0, 12).map((event: any, index: number) => {
           // Extract event details
           const name = event.title || event.name || "Event";
           const description = event.description || event.intro || `A family-friendly event in ${targetCity}`;
@@ -585,21 +604,21 @@ export default function ActivitiesPage() {
     const eventType = eventTypeMapping[selectedActivity.type] || 'custody';
 
     addToPlanMutation.mutate({
-      childId: planFormData.childId || children[0]?.id || 1,
+      child_id: planFormData.childId || children[0]?.id || 1,
       title: selectedActivity.name,
-      startDate: planFormData.date,
-      endDate: planFormData.date,
-      startTime,
-      endTime,
-      timeZone: "Europe/Oslo",
+      start_date: planFormData.date,
+      end_date: planFormData.date,
+      start_time: startTime,
+      end_time: endTime,
+      time_zone: "Europe/Oslo",
       parent: "A",
       type: eventType,
       description: selectedActivity.description,
       location: address || location,
       recurrence: null,
-      recurrenceInterval: 1,
-      recurrenceEnd: null,
-      recurrenceDays: null,
+      recurrence_interval: 1,
+      recurrence_end: null,
+      recurrence_days: null,
     });
   };
 
@@ -1145,7 +1164,7 @@ export default function ActivitiesPage() {
                   // Also trigger add to plan
                   if (viewDetailsActivity) {
                     handleAddToPlan({
-                      name: viewDetailsActivity.name || viewDetailsActivity.title,
+                      name: viewDetailsActivity.name || viewDetailsActivity.title || "Activity",
                       description: viewDetailsActivity.description,
                       type: "activity"
                     });

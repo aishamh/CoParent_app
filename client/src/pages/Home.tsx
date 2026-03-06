@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
-import { supabaseApi } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   format,
@@ -134,7 +134,7 @@ function isOnboardingComplete(): boolean {
   return localStorage.getItem("onboarding_completed") === "true";
 }
 
-function getParentName(data: OnboardingData | null, user: any): string {
+function getParentName(data: OnboardingData | null, user: { email?: string | null } | null): string {
   if (data?.parentAName) return data.parentAName;
   if (user?.email) return user.email.split("@")[0];
   return "there";
@@ -410,7 +410,7 @@ function ChildCard({
 export default function Home() {
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<(TransformedEvent & { date: Date }) | null>(null);
   const [imageError, setImageError] = useState(false);
   const [onboardingData, setOnboardingData] =
     useState<OnboardingData | null>(null);
@@ -435,10 +435,9 @@ export default function Home() {
     queryKey: ["events"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabaseApi.getEvents();
-        if (error) throw error;
-        return (data || []).map(
-          (e: any): TransformedEvent => ({
+        const events = await api.getEvents();
+        return events.map(
+          (e): TransformedEvent => ({
             id: e.id,
             childId: e.child_id || null,
             title: e.title || "",
@@ -470,17 +469,16 @@ export default function Home() {
     queryKey: ["children"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabaseApi.getChildren();
-        if (error) throw error;
-        return (data || []).map((c: any) => ({
+        const children = await api.getChildren();
+        return children.map((c) => ({
           id: String(c.id),
           name: c.name || "",
-          age: c.age ?? "",
+          age: c.age ?? ("" as number | ""),
           gender: c.gender || "",
           interests: c.interests
             ? typeof c.interests === "string"
               ? c.interests.split(",").map((s: string) => s.trim())
-              : c.interests
+              : (c.interests as string[])
             : [],
         }));
       } catch {
@@ -735,7 +733,7 @@ export default function Home() {
                 initial="hidden"
                 animate="visible"
               >
-                {children.map((child: any) => (
+                {children.map((child) => (
                   <ChildCard key={child.id} child={child} />
                 ))}
               </motion.div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMessages, sendMessage, markMessageAsRead, getCurrentUser } from "../lib/api";
+import { api } from "@/lib/api";
 import Layout from "@/components/Layout";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -35,12 +35,8 @@ import {
   Search,
   Plus,
   ArrowLeft,
-  Smile,
-  Paperclip,
   FlaskConical,
   MessageCircle,
-  Users,
-  X,
 } from "lucide-react";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -53,17 +49,18 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface TestMessage {
   id: string;
-  senderId: string;
-  receiverId: string;
+  sender_id: string;
+  receiver_id: string;
   subject: string | null;
   content: string;
-  isRead: boolean;
-  readAt: Date | null;
-  createdAt: Date;
-  contentHash: string;
-  senderIp: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+  content_hash: string;
   isTest: true;
 }
+
+type AnyMessage = Message | TestMessage;
 
 interface Conversation {
   partnerId: string;
@@ -370,7 +367,7 @@ export default function MessagesPage() {
   // Input state
   const [messageInput, setMessageInput] = useState("");
   const [composeData, setComposeData] = useState({
-    receiverId: "",
+    receiver_id: "",
     subject: "",
     content: "",
   });
@@ -386,18 +383,16 @@ export default function MessagesPage() {
   // API queries
   // ---------------------------------------------------------------------------
 
-  const { data: currentUser } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: getCurrentUser,
-  });
+  const myId = user?.id || "me";
 
-  const { data: apiMessages = [], isLoading } = useQuery({
+  const { data: apiMessages = [], isLoading } = useQuery<Message[]>({
     queryKey: ["messages"],
-    queryFn: () => getMessages(),
+    queryFn: () => api.getMessages(),
   });
 
   const sendMutation = useMutation({
-    mutationFn: sendMessage,
+    mutationFn: (params: { receiver_id: string; content: string; subject?: string }) =>
+      api.sendMessage({ receiver_id: params.receiver_id, content: params.content, subject: params.subject }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["messages"] });
       toast({
@@ -415,7 +410,7 @@ export default function MessagesPage() {
   });
 
   const markReadMutation = useMutation({
-    mutationFn: markMessageAsRead,
+    mutationFn: (id: string) => api.markMessageAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["messages"] });
     },
@@ -425,8 +420,6 @@ export default function MessagesPage() {
   // Derived data
   // ---------------------------------------------------------------------------
 
-  const myId = user?.id || currentUser?.id || "me";
-
   // Build conversations from real messages + test messages
   const conversations = useMemo<Conversation[]>(() => {
     const map = new Map<string, Conversation>();
@@ -434,16 +427,16 @@ export default function MessagesPage() {
     // Real messages
     for (const msg of apiMessages) {
       const partnerId =
-        msg.senderId === myId ? msg.receiverId : msg.senderId;
+        msg.sender_id === myId ? msg.receiver_id : msg.sender_id;
       const existing = map.get(partnerId);
-      const msgDate = new Date(msg.createdAt);
+      const msgDate = new Date(msg.created_at);
 
       if (!existing || msgDate > existing.lastMessageAt) {
         const unread = apiMessages.filter(
           (m) =>
-            m.senderId === partnerId &&
-            m.receiverId === myId &&
-            !m.isRead
+            m.sender_id === partnerId &&
+            m.receiver_id === myId &&
+            !m.is_read
         ).length;
         map.set(partnerId, {
           partnerId,
@@ -460,12 +453,12 @@ export default function MessagesPage() {
       const testMsgs = testMessages;
       const lastTest = testMsgs.length > 0 ? testMsgs[testMsgs.length - 1] : null;
       const existing = map.get(TEST_PARENT_B_ID);
-      if (!existing || (lastTest && new Date(lastTest.createdAt) > existing.lastMessageAt)) {
+      if (!existing || (lastTest && new Date(lastTest.created_at) > existing.lastMessageAt)) {
         map.set(TEST_PARENT_B_ID, {
           partnerId: TEST_PARENT_B_ID,
           partnerName: parentB,
           lastMessage: lastTest?.content || "Start a test conversation...",
-          lastMessageAt: lastTest ? new Date(lastTest.createdAt) : new Date(),
+          lastMessageAt: lastTest ? new Date(lastTest.created_at) : new Date(),
           unreadCount: 0,
           isTestConversation: true,
         });
@@ -487,7 +480,7 @@ export default function MessagesPage() {
   }, [apiMessages, testMessages, testModeEnabled, myId, parentB]);
 
   // Messages for the selected conversation
-  const activeMessages = useMemo(() => {
+  const activeMessages = useMemo<AnyMessage[]>(() => {
     if (!selectedConversationId) return [];
 
     if (selectedConversationId === TEST_PARENT_B_ID) {
@@ -497,12 +490,12 @@ export default function MessagesPage() {
     return apiMessages
       .filter(
         (m) =>
-          (m.senderId === myId && m.receiverId === selectedConversationId) ||
-          (m.receiverId === myId && m.senderId === selectedConversationId)
+          (m.sender_id === myId && m.receiver_id === selectedConversationId) ||
+          (m.receiver_id === myId && m.sender_id === selectedConversationId)
       )
       .sort(
         (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
   }, [selectedConversationId, apiMessages, testMessages, myId]);
 
@@ -534,9 +527,9 @@ export default function MessagesPage() {
     if (!selectedConversationId || selectedConversationId === TEST_PARENT_B_ID) return;
     const unread = apiMessages.filter(
       (m) =>
-        m.senderId === selectedConversationId &&
-        m.receiverId === myId &&
-        !m.isRead
+        m.sender_id === selectedConversationId &&
+        m.receiver_id === myId &&
+        !m.is_read
     );
     for (const msg of unread) {
       markReadMutation.mutate(msg.id);
@@ -561,17 +554,17 @@ export default function MessagesPage() {
 
     if (selectedConversationId === TEST_PARENT_B_ID) {
       // Test mode: add to local state
+      const now = new Date().toISOString();
       const newMsg: TestMessage = {
         id: `test-${Date.now()}`,
-        senderId: myId,
-        receiverId: TEST_PARENT_B_ID,
+        sender_id: myId,
+        receiver_id: TEST_PARENT_B_ID,
         subject: null,
         content: text,
-        isRead: true,
-        readAt: new Date(),
-        createdAt: new Date(),
-        contentHash: "test-hash",
-        senderIp: null,
+        is_read: true,
+        read_at: now,
+        created_at: now,
+        content_hash: "test-hash",
         isTest: true,
       };
       setTestMessages((prev) => [...prev, newMsg]);
@@ -584,17 +577,17 @@ export default function MessagesPage() {
         setIsTyping(false);
         const { text: responseText, index } = pickAutoResponse(lastAutoResponseIdx);
         setLastAutoResponseIdx(index);
+        const responseNow = new Date().toISOString();
         const responseMsg: TestMessage = {
           id: `test-resp-${Date.now()}`,
-          senderId: TEST_PARENT_B_ID,
-          receiverId: myId,
+          sender_id: TEST_PARENT_B_ID,
+          receiver_id: myId,
           subject: null,
           content: responseText,
-          isRead: true,
-          readAt: new Date(),
-          createdAt: new Date(),
-          contentHash: "test-hash",
-          senderIp: null,
+          is_read: true,
+          read_at: responseNow,
+          created_at: responseNow,
+          content_hash: "test-hash",
           isTest: true,
         };
         setTestMessages((prev) => [...prev, responseMsg]);
@@ -602,9 +595,9 @@ export default function MessagesPage() {
     } else if (selectedConversationId) {
       // Real message
       sendMutation.mutate({
-        receiverId: selectedConversationId,
-        subject: "",
+        receiver_id: selectedConversationId,
         content: text,
+        subject: "",
       });
       setMessageInput("");
     }
@@ -612,14 +605,21 @@ export default function MessagesPage() {
 
   const handleComposeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    sendMutation.mutate(composeData, {
-      onSuccess: () => {
-        setIsComposeOpen(false);
-        setComposeData({ receiverId: "", subject: "", content: "" });
-        setSelectedConversationId(composeData.receiverId);
-        setShowMobileChat(true);
+    sendMutation.mutate(
+      {
+        receiver_id: composeData.receiver_id,
+        content: composeData.content,
+        subject: composeData.subject,
       },
-    });
+      {
+        onSuccess: () => {
+          setIsComposeOpen(false);
+          setComposeData({ receiver_id: "", subject: "", content: "" });
+          setSelectedConversationId(composeData.receiver_id);
+          setShowMobileChat(true);
+        },
+      },
+    );
   };
 
   const handleSelectConversation = (partnerId: string) => {
@@ -893,17 +893,17 @@ export default function MessagesPage() {
           ) : (
             <div className="py-2">
               {activeMessages.map((msg, idx) => {
-                const msgDate = new Date(msg.createdAt);
+                const msgDate = new Date(msg.created_at);
                 const prevMsg = idx > 0 ? activeMessages[idx - 1] : null;
                 const nextMsg =
                   idx < activeMessages.length - 1
                     ? activeMessages[idx + 1]
                     : null;
                 const showDateDivider =
-                  !prevMsg || !isSameDay(msgDate, new Date(prevMsg.createdAt));
-                const isMine = msg.senderId === myId;
+                  !prevMsg || !isSameDay(msgDate, new Date(prevMsg.created_at));
+                const isMine = msg.sender_id === myId;
                 const nextIsSameSender =
-                  nextMsg && nextMsg.senderId === msg.senderId;
+                  nextMsg && nextMsg.sender_id === msg.sender_id;
                 const showTail = !nextIsSameSender;
 
                 return (
@@ -913,8 +913,8 @@ export default function MessagesPage() {
                       content={msg.content}
                       timestamp={msgDate}
                       isMine={isMine}
-                      isRead={msg.isRead}
-                      isTest={"isTest" in msg && msg.isTest}
+                      isRead={msg.is_read}
+                      isTest={"isTest" in msg && (msg as TestMessage).isTest}
                       showTail={showTail}
                     />
                   </div>
@@ -1039,9 +1039,9 @@ export default function MessagesPage() {
                 <Input
                   id="compose-receiverId"
                   placeholder="Enter co-parent's user ID"
-                  value={composeData.receiverId}
+                  value={composeData.receiver_id}
                   onChange={(e) =>
-                    setComposeData({ ...composeData, receiverId: e.target.value })
+                    setComposeData({ ...composeData, receiver_id: e.target.value })
                   }
                   required
                 />

@@ -2,10 +2,9 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { createHash } from "crypto";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { put, del } from "@vercel/blob";
 import { storage } from "./storage";
-import { hashPassword, verifyPassword, sanitizeUser, requireAuth } from "./auth";
+import { hashPassword, verifyPassword, sanitizeUser, requireAuth, generateToken } from "./auth";
 import { authRateLimiter, apiRateLimiter } from "./middleware/security";
 import {
   insertUserSchema,
@@ -23,20 +22,9 @@ import {
   insertDocumentSchema
 } from "@shared/schema";
 
-// Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+// Configure multer with memory storage (files uploaded to Vercel Blob)
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + "-" + file.originalname);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
@@ -67,10 +55,16 @@ export async function registerRoutes(
         password: hashedPassword
       });
 
-      // Set session
-      req.session.userId = user.id;
+      // Generate JWT token
+      const token = generateToken(user.id);
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
 
-      res.status(201).json(sanitizeUser(user));
+      res.status(201).json({ ...sanitizeUser(user), token });
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
@@ -95,11 +89,17 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Set session
-      req.session.userId = user.id;
+      // Generate JWT token
+      const token = generateToken(user.id);
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
       console.log("Login successful for user:", user.username);
 
-      res.json(sanitizeUser(user));
+      res.json({ ...sanitizeUser(user), token });
     } catch (error) {
       console.error("Login error:", error);
       if (error instanceof Error) {
@@ -111,20 +111,12 @@ export async function registerRoutes(
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Failed to logout" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
+    res.clearCookie('token');
+    res.json({ message: "Logged out successfully" });
   });
 
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const user = await storage.getUser(req.session.userId);
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    const user = await storage.getUser((req as any).userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -181,25 +173,17 @@ export async function registerRoutes(
   });
 
   // Message routes - Secure, immutable messaging
-  app.get("/api/messages", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+  app.get("/api/messages", requireAuth, async (req, res) => {
     const { otherUserId } = req.query;
     const messages = await storage.getMessages(
-      req.session.userId,
+      (req as any).userId,
       otherUserId as string | undefined
     );
     res.json(messages);
   });
 
-  app.get("/api/messages/unread-count", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const count = await storage.getUnreadCount(req.session.userId);
+  app.get("/api/messages/unread-count", requireAuth, async (req, res) => {
+    const count = await storage.getUnreadCount((req as any).userId);
     res.json({ count });
   });
 
@@ -211,29 +195,25 @@ export async function registerRoutes(
     res.json(message);
   });
 
-  app.post("/api/messages", async (req, res) => {
+  app.post("/api/messages", requireAuth, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
       const validatedData = insertMessageSchema.parse({
         ...req.body,
-        senderId: req.session.userId,
+        sender_id: (req as any).userId,
       });
 
       // Create content hash for integrity verification (court admissibility)
-      const contentHash = createHash("sha256")
-        .update(validatedData.content + validatedData.senderId + Date.now())
+      const content_hash = createHash("sha256")
+        .update(validatedData.content + (req as any).userId + Date.now())
         .digest("hex");
 
       // Get sender IP for audit trail
-      const senderIp = req.ip || req.socket.remoteAddress;
+      const sender_ip = req.ip || req.socket.remoteAddress;
 
       const message = await storage.createMessage({
         ...validatedData,
-        contentHash,
-        senderIp: senderIp || undefined,
+        content_hash,
+        sender_ip: sender_ip || undefined,
       });
 
       res.status(201).json(message);
@@ -242,18 +222,14 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/messages/:id/read", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+  app.patch("/api/messages/:id/read", requireAuth, async (req, res) => {
     const message = await storage.getMessage(parseInt(req.params.id));
     if (!message) {
       return res.status(404).json({ error: "Message not found" });
     }
 
     // Only the receiver can mark as read
-    if (message.receiverId !== req.session.userId) {
+    if (message.receiver_id !== (req as any).userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -262,14 +238,10 @@ export async function registerRoutes(
   });
 
   // Document routes
-  app.get("/api/documents", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+  app.get("/api/documents", requireAuth, async (req, res) => {
     const { category, childId } = req.query;
     const documents = await storage.getDocuments(
-      req.session.userId,
+      (req as any).userId,
       category as string | undefined,
       childId ? parseInt(childId as string) : undefined
     );
@@ -284,29 +256,32 @@ export async function registerRoutes(
     res.json(document);
   });
 
-  app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+  app.post("/api/documents/upload", requireAuth, upload.single("file"), async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
       const { title, description, category, childId, tags, sharedWith } = req.body;
 
+      // Upload file to Vercel Blob
+      const blob = await put(
+        `documents/${Date.now()}-${req.file.originalname}`,
+        req.file.buffer,
+        { access: "public", contentType: req.file.mimetype }
+      );
+
       const document = await storage.createDocument({
-        uploadedBy: req.session.userId,
-        childId: childId ? parseInt(childId) : null,
+        uploaded_by: (req as any).userId,
+        child_id: childId ? parseInt(childId) : null,
         title: title || req.file.originalname,
         description: description || null,
         category: category || "other",
-        fileUrl: `/uploads/${req.file.filename}`,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: req.file.mimetype,
-        sharedWith: sharedWith ? JSON.parse(sharedWith) : [],
+        file_path: blob.url,
+        file_name: req.file.originalname,
+        file_size: req.file.size,
+        file_type: req.file.mimetype,
+        shared_with: sharedWith ? JSON.parse(sharedWith) : [],
         tags: tags ? JSON.parse(tags) : [],
       });
 
@@ -316,19 +291,15 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/documents/:id", async (req, res) => {
+  app.patch("/api/documents/:id", requireAuth, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
       const document = await storage.getDocument(parseInt(req.params.id));
       if (!document) {
         return res.status(404).json({ error: "Document not found" });
       }
 
       // Only owner can update
-      if (document.uploadedBy !== req.session.userId) {
+      if (document.uploaded_by !== (req as any).userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
@@ -339,25 +310,22 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/documents/:id", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+  app.delete("/api/documents/:id", requireAuth, async (req, res) => {
     const document = await storage.getDocument(parseInt(req.params.id));
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
 
     // Only owner can delete
-    if (document.uploadedBy !== req.session.userId) {
+    if (document.uploaded_by !== (req as any).userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Delete file from disk
-    const filePath = path.join(process.cwd(), document.fileUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete file from Vercel Blob
+    try {
+      await del(document.file_path);
+    } catch {
+      // Ignore blob deletion errors — file may already be gone
     }
 
     const success = await storage.deleteDocument(parseInt(req.params.id));
@@ -368,18 +336,14 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.post("/api/documents/:id/share", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+  app.post("/api/documents/:id/share", requireAuth, async (req, res) => {
     const document = await storage.getDocument(parseInt(req.params.id));
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
 
     // Only owner can share
-    if (document.uploadedBy !== req.session.userId) {
+    if (document.uploaded_by !== (req as any).userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -387,9 +351,6 @@ export async function registerRoutes(
     const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
     res.json(updated);
   });
-
-  // Serve uploaded files
-  app.use("/uploads", express.static(uploadDir));
 
   // Children routes
   app.get("/api/children", async (req, res) => {

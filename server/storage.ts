@@ -23,6 +23,8 @@ import {
   type InsertMessage,
   type Document,
   type InsertDocument,
+} from "@shared/schema";
+import {
   users,
   children,
   events,
@@ -34,8 +36,8 @@ import {
   handoverNotes,
   expenses,
   messages,
-  documents
-} from "@shared/schema";
+  documents,
+} from "./tables";
 import { db } from "./db";
 import { eq, and, or, gte, lte, desc } from "drizzle-orm";
 
@@ -100,18 +102,18 @@ export interface IStorage {
 
   // Message methods
   getMessages(userId: string, otherUserId?: string): Promise<Message[]>;
-  getMessage(id: number): Promise<Message | undefined>;
-  createMessage(message: InsertMessage & { contentHash: string }): Promise<Message>;
-  markMessageAsRead(id: number): Promise<Message | undefined>;
+  getMessage(id: string): Promise<Message | undefined>;
+  createMessage(message: InsertMessage & { content_hash: string; sender_id: string; family_id: string; sender_ip?: string }): Promise<Message>;
+  markMessageAsRead(id: string): Promise<Message | undefined>;
   getUnreadCount(userId: string): Promise<number>;
 
   // Document methods
   getDocuments(userId: string, category?: string, childId?: number): Promise<Document[]>;
-  getDocument(id: number): Promise<Document | undefined>;
+  getDocument(id: string): Promise<Document | undefined>;
   createDocument(document: InsertDocument): Promise<Document>;
-  updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document | undefined>;
-  deleteDocument(id: number): Promise<boolean>;
-  shareDocument(id: number, userIds: string[]): Promise<Document | undefined>;
+  updateDocument(id: string, document: Partial<InsertDocument>): Promise<Document | undefined>;
+  deleteDocument(id: string): Promise<boolean>;
+  shareDocument(id: string, userIds: string[]): Promise<Document | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -153,12 +155,12 @@ export class DatabaseStorage implements IStorage {
 
   // Events methods
   async getEvents(childId?: number, startDate?: string, endDate?: string): Promise<Event[]> {
-    let query = db.select().from(events);
+    const query = db.select().from(events);
 
     const conditions = [];
-    if (childId) conditions.push(eq(events.childId, childId));
-    if (startDate) conditions.push(gte(events.startDate, startDate));
-    if (endDate) conditions.push(lte(events.startDate, endDate));
+    if (childId) conditions.push(eq(events.child_id, childId));
+    if (startDate) conditions.push(gte(events.start_date, startDate));
+    if (endDate) conditions.push(lte(events.start_date, endDate));
 
     if (conditions.length > 0) {
       return query.where(and(...conditions));
@@ -182,8 +184,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: number): Promise<boolean> {
-    const result = await db.delete(events).where(eq(events.id, id));
-    return result.changes > 0;
+    const result = await db.delete(events).where(eq(events.id, id)).returning();
+    return result.length > 0;
   }
 
   // Activities methods
@@ -247,7 +249,7 @@ export class DatabaseStorage implements IStorage {
   // Reading List methods
   async getReadingList(childId?: number): Promise<ReadingListItem[]> {
     if (childId) {
-      return db.select().from(readingList).where(eq(readingList.childId, childId));
+      return db.select().from(readingList).where(eq(readingList.child_id, childId));
     }
     return db.select().from(readingList);
   }
@@ -270,7 +272,7 @@ export class DatabaseStorage implements IStorage {
   // School Tasks methods
   async getSchoolTasks(childId?: number): Promise<SchoolTask[]> {
     if (childId) {
-      return db.select().from(schoolTasks).where(eq(schoolTasks.childId, childId));
+      return db.select().from(schoolTasks).where(eq(schoolTasks.child_id, childId));
     }
     return db.select().from(schoolTasks);
   }
@@ -292,10 +294,10 @@ export class DatabaseStorage implements IStorage {
 
   // Handover Notes methods
   async getHandoverNotes(childId?: number): Promise<HandoverNote[]> {
-    let query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.createdAt));
-    
+    const query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at));
+
     if (childId) {
-      return query.where(eq(handoverNotes.childId, childId));
+      return query.where(eq(handoverNotes.child_id, childId));
     }
     return query;
   }
@@ -307,10 +309,10 @@ export class DatabaseStorage implements IStorage {
 
   // Expense methods
   async getExpenses(childId?: number, status?: string): Promise<Expense[]> {
-    let query = db.select().from(expenses).orderBy(desc(expenses.date));
+    const query = db.select().from(expenses).orderBy(desc(expenses.date));
 
     const conditions = [];
-    if (childId) conditions.push(eq(expenses.childId, childId));
+    if (childId) conditions.push(eq(expenses.child_id, childId));
     if (status) conditions.push(eq(expenses.status, status));
 
     if (conditions.length > 0) {
@@ -335,43 +337,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpense(id: number): Promise<boolean> {
-    const result = await db.delete(expenses).where(eq(expenses.id, id));
-    return result.changes > 0;
+    const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
+    return result.length > 0;
   }
 
   // Message methods
   async getMessages(userId: string, otherUserId?: string): Promise<Message[]> {
-    let query = db.select().from(messages).orderBy(desc(messages.createdAt));
+    const query = db.select().from(messages).orderBy(desc(messages.created_at));
 
     if (otherUserId) {
       // Get conversation between two users
       return query.where(
         or(
-          and(eq(messages.senderId, userId), eq(messages.receiverId, otherUserId)),
-          and(eq(messages.senderId, otherUserId), eq(messages.receiverId, userId))
+          and(eq(messages.sender_id, userId), eq(messages.receiver_id, otherUserId)),
+          and(eq(messages.sender_id, otherUserId), eq(messages.receiver_id, userId))
         )
       );
     } else {
       // Get all messages for user (sent or received)
       return query.where(
-        or(eq(messages.receiverId, userId), eq(messages.senderId, userId))
+        or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId))
       );
     }
   }
 
-  async getMessage(id: number): Promise<Message | undefined> {
+  async getMessage(id: string): Promise<Message | undefined> {
     const [message] = await db.select().from(messages).where(eq(messages.id, id));
     return message || undefined;
   }
 
-  async createMessage(message: InsertMessage & { contentHash: string }): Promise<Message> {
+  async createMessage(message: InsertMessage & { content_hash: string; sender_id: string; family_id: string; sender_ip?: string }): Promise<Message> {
     const [newMessage] = await db.insert(messages).values(message).returning();
     return newMessage;
   }
 
-  async markMessageAsRead(id: number): Promise<Message | undefined> {
+  async markMessageAsRead(id: string): Promise<Message | undefined> {
     const [updated] = await db.update(messages)
-      .set({ isRead: true, readAt: new Date() })
+      .set({ is_read: true, read_at: new Date().toISOString() })
       .where(eq(messages.id, id))
       .returning();
     return updated || undefined;
@@ -381,27 +383,27 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(messages)
-      .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)));
+      .where(and(eq(messages.receiver_id, userId), eq(messages.is_read, false)));
     return result.length;
   }
 
   // Document methods
   async getDocuments(userId: string, category?: string, childId?: number): Promise<Document[]> {
-    let query = db.select().from(documents).orderBy(desc(documents.createdAt));
+    const query = db.select().from(documents).orderBy(desc(documents.created_at));
 
     const conditions = [];
 
     // User can see documents they uploaded or that are shared with them
     conditions.push(
       or(
-        eq(documents.uploadedBy, userId),
+        eq(documents.uploaded_by, userId),
         // This is a simplified check - in production you'd use SQL array contains
-        eq(documents.uploadedBy, userId) // Placeholder - needs proper array contains check
+        eq(documents.uploaded_by, userId) // Placeholder - needs proper array contains check
       )
     );
 
     if (category) conditions.push(eq(documents.category, category));
-    if (childId) conditions.push(eq(documents.childId, childId));
+    if (childId) conditions.push(eq(documents.child_id, childId));
 
     if (conditions.length > 0) {
       return query.where(and(...conditions));
@@ -409,7 +411,7 @@ export class DatabaseStorage implements IStorage {
     return query;
   }
 
-  async getDocument(id: number): Promise<Document | undefined> {
+  async getDocument(id: string): Promise<Document | undefined> {
     const [document] = await db.select().from(documents).where(eq(documents.id, id));
     return document || undefined;
   }
@@ -419,22 +421,22 @@ export class DatabaseStorage implements IStorage {
     return newDocument;
   }
 
-  async updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document | undefined> {
+  async updateDocument(id: string, document: Partial<InsertDocument>): Promise<Document | undefined> {
     const [updated] = await db.update(documents)
-      .set({ ...document, updatedAt: new Date() })
+      .set({ ...document, updated_at: new Date().toISOString() })
       .where(eq(documents.id, id))
       .returning();
     return updated || undefined;
   }
 
-  async deleteDocument(id: number): Promise<boolean> {
-    const result = await db.delete(documents).where(eq(documents.id, id));
-    return result.changes > 0;
+  async deleteDocument(id: string): Promise<boolean> {
+    const result = await db.delete(documents).where(eq(documents.id, id)).returning();
+    return result.length > 0;
   }
 
-  async shareDocument(id: number, userIds: string[]): Promise<Document | undefined> {
+  async shareDocument(id: string, userIds: string[]): Promise<Document | undefined> {
     const [updated] = await db.update(documents)
-      .set({ sharedWith: JSON.stringify(userIds), updatedAt: new Date() })
+      .set({ shared_with: userIds, updated_at: new Date().toISOString() })
       .where(eq(documents.id, id))
       .returning();
     return updated || undefined;

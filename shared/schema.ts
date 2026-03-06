@@ -1,216 +1,354 @@
-import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Helper function to generate UUID-like IDs for SQLite
-export const generateId = () => crypto.randomUUID();
+// ============================================================
+// CoParent App - Type Definitions (Vercel Postgres)
+// ============================================================
+// Types mirror the PostgreSQL tables. Drizzle table definitions
+// live in server/tables.ts (server-only, not bundled in client).
+// ============================================================
 
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey().$defaultFn(() => generateId()),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull(), // "parentA" or "parentB"
-  parentAName: text("parent_a_name").notNull().default("Parent A"), // Custom name for Parent A
-  parentBName: text("parent_b_name").notNull().default("Parent B"), // Custom name for Parent B
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
+// --- Families ---
+export interface Family {
+  id: string;
+  name: string;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  email: true,
-  password: true,
-  role: true,
+// --- Users (server-side, includes password) ---
+export interface User {
+  id: string;
+  username: string;
+  email: string | null;
+  password: string;
+  display_name: string | null;
+  role: string;
+  family_id: string | null;
+  avatar_url: string | null;
+  parent_a_name: string | null;
+  parent_b_name: string | null;
+  created_at: string;
+}
+
+export const insertUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email().nullable().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  display_name: z.string().nullable().optional(),
+  role: z.string().default("parent_a"),
 });
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type LoginUser = z.infer<typeof loginSchema>;
-export type User = typeof users.$inferSelect;
+// --- Profiles (client-facing, no password) ---
+export interface Profile {
+  id: string;
+  email: string | null;
+  username: string | null;
+  role: string;
+  family_id: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  parent_a_name: string | null;
+  parent_b_name: string | null;
+  created_at: string;
+}
 
-// Co-Parenting App Tables
+// --- Children ---
+export interface Child {
+  id: number;
+  family_id: string;
+  name: string;
+  age: number;
+  gender: string | null;
+  interests: string;
+  created_at: string;
+}
 
-export const children = sqliteTable("children", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  age: integer("age").notNull(),
-  gender: text("gender"),
-  interests: text("interests").notNull().default("[]"), // JSON array stored as text
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
+export const insertChildSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.number().min(0).max(18),
+  gender: z.string().nullable().optional(),
+  interests: z.string().default("[]"),
 });
-
-export const events = sqliteTable("events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  childId: integer("child_id").references(() => children.id), // Optional - can be 0 for all children
-  title: text("title").notNull(),
-  startDate: text("start_date").notNull(), // ISO date string for when event starts
-  endDate: text("end_date").notNull(), // ISO date string for when event ends (can be same as startDate)
-  startTime: text("start_time").notNull().default("00:00"), // Time in HH:MM format
-  endTime: text("end_time").notNull().default("23:59"), // Time in HH:MM format
-  timeZone: text("time_zone").notNull().default("UTC"), // Time zone (e.g., "Europe/Oslo")
-  parent: text("parent").notNull(), // "A" or "B"
-  type: text("type").notNull(), // "custody", "holiday", "activity", "travel"
-  recurrence: text("recurrence"), // "none", "daily", "weekly", "monthly", "yearly", "custom"
-  recurrenceInterval: integer("recurrence_interval").default(1), // e.g., every 2 weeks
-  recurrenceEnd: text("recurrence_end"), // ISO date string when recurrence ends (optional)
-  recurrenceDays: text("recurrence_days"), // JSON array of days for custom recurrence (e.g., "[1,3,5]" for Mon/Wed/Fri)
-  description: text("description"),
-  location: text("location"),
-  address: text("address"), // Full street address
-  city: text("city"), // City name
-  postalCode: text("postal_code"), // Postal/ZIP code
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const activities = sqliteTable("activities", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  category: text("category").notNull(),
-  ageRange: text("age_range").notNull(),
-  duration: text("duration").notNull(),
-  image: text("image"),
-  description: text("description").notNull(),
-  season: text("season"), // "winter", "summer", "spring", "fall", "all"
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const friends = sqliteTable("friends", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  email: text("email"),
-  avatar: text("avatar"),
-  relation: text("relation").notNull(),
-  kids: text("kids").notNull().default("[]"), // JSON array stored as text
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const socialEvents = sqliteTable("social_events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  date: text("date").notNull(), // ISO date string
-  location: text("location"),
-  friendId: integer("friend_id").references(() => friends.id),
-  description: text("description"),
-  rsvpStatus: text("rsvp_status").default("pending"), // "pending", "accepted", "declined"
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const readingList = sqliteTable("reading_list", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  childId: integer("child_id").references(() => children.id).notNull(),
-  title: text("title").notNull(),
-  author: text("author").notNull(),
-  progress: integer("progress").notNull().default(0),
-  assignedTo: text("assigned_to").notNull(), // "Parent A" or "Parent B"
-  cover: text("cover"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const schoolTasks = sqliteTable("school_tasks", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  childId: integer("child_id").references(() => children.id).notNull(),
-  title: text("title").notNull(),
-  dueDate: text("due_date").notNull(), // ISO date string
-  status: text("status").notNull().default("pending"), // "pending", "in-progress", "completed"
-  platform: text("platform").default("Fridge Skole"),
-  description: text("description"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const handoverNotes = sqliteTable("handover_notes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  childId: integer("child_id").references(() => children.id).notNull(),
-  parent: text("parent").notNull(), // "A" or "B"
-  message: text("message").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const expenses = sqliteTable("expenses", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  childId: integer("child_id").references(() => children.id).notNull(),
-  title: text("title").notNull(),
-  amount: integer("amount").notNull(), // Store as cents to avoid decimal issues
-  category: text("category").notNull(), // "medical", "education", "activities", "clothing", "food", "other"
-  paidBy: text("paid_by").notNull(), // "parentA" or "parentB"
-  splitPercentage: integer("split_percentage").notNull().default(50), // Default 50/50 split
-  date: text("date").notNull(), // ISO date string
-  receipt: text("receipt"), // URL to receipt image/document
-  status: text("status").notNull().default("pending"), // "pending", "approved", "reimbursed"
-  notes: text("notes"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-export const messages = sqliteTable("messages", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  senderId: text("sender_id").references(() => users.id).notNull(),
-  receiverId: text("receiver_id").references(() => users.id).notNull(),
-  subject: text("subject"),
-  content: text("content").notNull(),
-  isRead: integer("is_read", { mode: "boolean" }).notNull().default(false),
-  readAt: integer("read_at", { mode: "timestamp" }),
-  // Immutable audit fields - CANNOT be changed after creation
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull(),
-  // Hash of message content for integrity verification (court admissibility)
-  contentHash: text("content_hash").notNull(),
-  // IP address for audit trail
-  senderIp: text("sender_ip")
-});
-
-export const documents = sqliteTable("documents", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  uploadedBy: text("uploaded_by").references(() => users.id).notNull(),
-  childId: integer("child_id").references(() => children.id),
-  title: text("title").notNull(),
-  description: text("description"),
-  category: text("category").notNull(), // "medical", "legal", "receipt", "school", "court", "other"
-  fileUrl: text("file_url").notNull(),
-  fileName: text("file_name").notNull(),
-  fileSize: integer("file_size").notNull(), // in bytes
-  fileType: text("file_type").notNull(), // MIME type
-  sharedWith: text("shared_with").notNull().default("[]"), // JSON array of user IDs
-  tags: text("tags").notNull().default("[]"), // JSON array of tags
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull()
-});
-
-// Insert Schemas
-export const insertChildSchema = createInsertSchema(children).omit({ id: true, createdAt: true });
-export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true });
-export const insertActivitySchema = createInsertSchema(activities).omit({ id: true, createdAt: true });
-export const insertFriendSchema = createInsertSchema(friends).omit({ id: true, createdAt: true });
-export const insertSocialEventSchema = createInsertSchema(socialEvents).omit({ id: true, createdAt: true });
-export const insertReadingListSchema = createInsertSchema(readingList).omit({ id: true, createdAt: true });
-export const insertSchoolTaskSchema = createInsertSchema(schoolTasks).omit({ id: true, createdAt: true });
-export const insertHandoverNoteSchema = createInsertSchema(handoverNotes).omit({ id: true, createdAt: true });
-export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
-export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, contentHash: true });
-export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true });
-
-// Types
-export type Child = typeof children.$inferSelect;
 export type InsertChild = z.infer<typeof insertChildSchema>;
-export type Event = typeof events.$inferSelect;
+
+// --- Events ---
+export interface Event {
+  id: number;
+  family_id: string;
+  child_id: number | null;
+  title: string;
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  time_zone: string;
+  parent: string;
+  type: string;
+  recurrence: string | null;
+  recurrence_interval: number;
+  recurrence_end: string | null;
+  recurrence_days: string | null;
+  description: string | null;
+  location: string | null;
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
+  created_at: string;
+}
+
+export const insertEventSchema = z.object({
+  child_id: z.number().nullable().optional(),
+  title: z.string().min(1, "Title is required"),
+  start_date: z.string().min(1),
+  end_date: z.string().min(1),
+  start_time: z.string().default("00:00"),
+  end_time: z.string().default("23:59"),
+  time_zone: z.string().default("Europe/Oslo"),
+  parent: z.string().min(1),
+  type: z.enum(["custody", "holiday", "activity", "travel", "medical", "school", "other"]),
+  recurrence: z.string().nullable().optional(),
+  recurrence_interval: z.number().default(1),
+  recurrence_end: z.string().nullable().optional(),
+  recurrence_days: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  postal_code: z.string().nullable().optional(),
+});
 export type InsertEvent = z.infer<typeof insertEventSchema>;
-export type Activity = typeof activities.$inferSelect;
+
+// --- Activities ---
+export interface Activity {
+  id: number;
+  title: string;
+  category: string;
+  age_range: string;
+  duration: string;
+  image: string | null;
+  description: string;
+  season: string | null;
+  created_at: string;
+}
+
+export const insertActivitySchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  category: z.string().min(1),
+  age_range: z.string().min(1),
+  duration: z.string().min(1),
+  image: z.string().nullable().optional(),
+  description: z.string().min(1),
+  season: z.string().nullable().optional(),
+});
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
-export type Friend = typeof friends.$inferSelect;
+
+// --- Friends ---
+export interface Friend {
+  id: number;
+  family_id: string;
+  name: string;
+  email: string | null;
+  avatar: string | null;
+  relation: string;
+  kids: string;
+  created_at: string;
+}
+
+export const insertFriendSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+  relation: z.string().min(1),
+  kids: z.string().default("[]"),
+});
 export type InsertFriend = z.infer<typeof insertFriendSchema>;
-export type SocialEvent = typeof socialEvents.$inferSelect;
+
+// --- Social Events ---
+export interface SocialEvent {
+  id: number;
+  family_id: string;
+  title: string;
+  date: string;
+  location: string | null;
+  friend_id: number | null;
+  description: string | null;
+  rsvp_status: string;
+  created_at: string;
+}
+
+export const insertSocialEventSchema = z.object({
+  title: z.string().min(1),
+  date: z.string().min(1),
+  location: z.string().nullable().optional(),
+  friend_id: z.number().nullable().optional(),
+  description: z.string().nullable().optional(),
+  rsvp_status: z.enum(["pending", "accepted", "declined"]).default("pending"),
+});
 export type InsertSocialEvent = z.infer<typeof insertSocialEventSchema>;
-export type ReadingListItem = typeof readingList.$inferSelect;
+
+// --- Reading List ---
+export interface ReadingListItem {
+  id: number;
+  family_id: string;
+  child_id: number;
+  title: string;
+  author: string;
+  progress: number;
+  assigned_to: string;
+  cover: string | null;
+  created_at: string;
+}
+
+export const insertReadingListSchema = z.object({
+  child_id: z.number(),
+  title: z.string().min(1),
+  author: z.string().min(1),
+  progress: z.number().min(0).max(100).default(0),
+  assigned_to: z.string().min(1),
+  cover: z.string().nullable().optional(),
+});
 export type InsertReadingListItem = z.infer<typeof insertReadingListSchema>;
-export type SchoolTask = typeof schoolTasks.$inferSelect;
+
+// --- School Tasks ---
+export interface SchoolTask {
+  id: number;
+  family_id: string;
+  child_id: number;
+  title: string;
+  due_date: string;
+  status: string;
+  platform: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+export const insertSchoolTaskSchema = z.object({
+  child_id: z.number(),
+  title: z.string().min(1),
+  due_date: z.string().min(1),
+  status: z.enum(["pending", "in-progress", "completed"]).default("pending"),
+  platform: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
 export type InsertSchoolTask = z.infer<typeof insertSchoolTaskSchema>;
-export type HandoverNote = typeof handoverNotes.$inferSelect;
+
+// --- Handover Notes ---
+export interface HandoverNote {
+  id: number;
+  family_id: string;
+  child_id: number;
+  parent: string;
+  message: string;
+  created_at: string;
+}
+
+export const insertHandoverNoteSchema = z.object({
+  child_id: z.number(),
+  parent: z.string().min(1),
+  message: z.string().min(1),
+});
 export type InsertHandoverNote = z.infer<typeof insertHandoverNoteSchema>;
-export type Expense = typeof expenses.$inferSelect;
+
+// --- Expenses ---
+export interface Expense {
+  id: number;
+  family_id: string;
+  child_id: number;
+  title: string;
+  amount: number;
+  category: string;
+  paid_by: string;
+  split_percentage: number;
+  date: string;
+  receipt: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export const insertExpenseSchema = z.object({
+  child_id: z.number(),
+  title: z.string().min(1),
+  amount: z.number().min(0),
+  category: z.enum(["medical", "education", "activities", "clothing", "food", "transport", "other"]),
+  paid_by: z.string().min(1),
+  split_percentage: z.number().min(0).max(100).default(50),
+  date: z.string().min(1),
+  receipt: z.string().nullable().optional(),
+  status: z.enum(["pending", "approved", "reimbursed"]).default("pending"),
+  notes: z.string().nullable().optional(),
+});
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
-export type Message = typeof messages.$inferSelect;
+
+// --- Messages ---
+export interface Message {
+  id: string;
+  family_id: string;
+  sender_id: string;
+  receiver_id: string;
+  subject: string | null;
+  content: string;
+  is_read: boolean;
+  read_at: string | null;
+  content_hash: string;
+  sender_ip: string | null;
+  created_at: string;
+}
+
+export const insertMessageSchema = z.object({
+  receiver_id: z.string().min(1),
+  subject: z.string().nullable().optional(),
+  content: z.string().min(1, "Message cannot be empty"),
+});
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
-export type Document = typeof documents.$inferSelect;
+
+// --- Documents ---
+export interface Document {
+  id: string;
+  family_id: string;
+  uploaded_by: string;
+  child_id: number | null;
+  title: string;
+  description: string | null;
+  category: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  shared_with: string[];
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const insertDocumentSchema = z.object({
+  child_id: z.number().nullable().optional(),
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  category: z.enum(["medical", "legal", "receipt", "school", "court", "other"]),
+  tags: z.array(z.string()).default([]),
+});
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+
+// --- Oslo Events (external API response) ---
+export interface OsloEvent {
+  id: string;
+  title: string;
+  name: string;
+  description: string;
+  startDate: string;
+  startTime: string;
+  location: { name: string };
+  categories: { name: string }[];
+  image: { url: string };
+  isFree: boolean;
+  price?: string;
+  url: string;
+}

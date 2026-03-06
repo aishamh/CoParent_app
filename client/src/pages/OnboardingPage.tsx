@@ -2,8 +2,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { updateProfile, createChild } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -252,20 +252,16 @@ export default function OnboardingPage() {
     setSaving(true);
 
     try {
-      // Save to Supabase if user is authenticated
+      // Save via API if user is authenticated
       if (user) {
-        // Update profile
-        await supabase.from("profiles").upsert({
-          id: user.id,
-          email: user.email,
+        await updateProfile(user.id, {
           parent_a_name: data.parentAName,
           parent_b_name: data.parentBName,
           role: "parentA",
         });
 
-        // Insert children
         for (const child of data.children) {
-          await supabase.from("children").insert({
+          await createChild({
             name: child.name,
             age: typeof child.age === "number" ? child.age : 0,
             gender: child.gender || "not specified",
@@ -274,7 +270,7 @@ export default function OnboardingPage() {
         }
       }
     } catch (err) {
-      console.error("Error saving onboarding data to Supabase:", err);
+      console.error("Error saving onboarding data:", err);
       // Continue anyway -- data is in localStorage
     }
 

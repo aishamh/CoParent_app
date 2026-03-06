@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getChildren } from "@/lib/api";
-import { supabaseApi } from "@/lib/supabase";
+import { getChildren, api } from "@/lib/api";
+import type { Child } from "@shared/schema";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -524,7 +524,7 @@ export default function DiscoverPage() {
       description: string;
       location: string;
     }) => {
-      const supabaseEvent = {
+      const newEvent = {
         child_id: eventData.childId,
         title: eventData.title,
         start_date: eventData.startDate,
@@ -541,9 +541,9 @@ export default function DiscoverPage() {
         recurrence_end: null,
         recurrence_days: null,
       };
-      const { data, error } = await supabaseApi.createEvent(supabaseEvent);
-      if (error) throw error;
-      return data;
+      const result = await api.createEvent(newEvent);
+      if (!result) throw new Error("Failed to create event");
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -751,7 +751,7 @@ export default function DiscoverPage() {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
   };
 
   // -------------------------------------------------------------------------

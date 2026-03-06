@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: ""
   });
 
@@ -23,13 +23,13 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(formData.email, formData.password);
+    const { error } = await signIn(formData.username, formData.password);
 
     if (error) {
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message || "Invalid email or password",
+        description: error.message || "Invalid username or password",
       });
     } else {
       toast({
@@ -59,7 +59,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Reset Failed",
-        description: error.message,
+        description: error.message || "Password reset is not yet available. Please contact support.",
       });
     } else {
       toast({
@@ -82,16 +82,16 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Email/Password Form */}
+            {/* Username/Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                 />
               </div>

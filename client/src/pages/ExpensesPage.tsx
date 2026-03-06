@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getExpenses, getChildren, createExpense, updateExpense, deleteExpense } from "../lib/api";
+import { api } from "@/lib/api";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -13,7 +13,35 @@ import { useToast } from "../hooks/use-toast";
 import { Plus, DollarSign, Calendar, Trash2, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "@/components/Layout";
-import type { Expense, InsertExpense } from "@shared/schema";
+import type { Expense, Child } from "@shared/schema";
+
+interface ExpenseFormData {
+  child_id: number;
+  title: string;
+  amount: number;
+  category: string;
+  paid_by: string;
+  split_percentage: number;
+  date: string;
+  receipt: string;
+  status: string;
+  notes: string;
+}
+
+function createEmptyFormData(): ExpenseFormData {
+  return {
+    child_id: 0,
+    title: "",
+    amount: 0,
+    category: "other",
+    paid_by: "parentA",
+    split_percentage: 50,
+    date: new Date().toISOString().split("T")[0],
+    receipt: "",
+    status: "pending",
+    notes: "",
+  };
+}
 
 export default function ExpensesPage() {
   const { toast } = useToast();
@@ -21,31 +49,24 @@ export default function ExpensesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
-  const { data: expenses = [], isLoading } = useQuery({
+  const { data: expenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ["expenses", selectedFilter !== "all" ? selectedFilter : undefined],
-    queryFn: () => getExpenses(undefined, selectedFilter !== "all" ? selectedFilter : undefined),
+    queryFn: () =>
+      api.getExpenses(
+        undefined,
+        selectedFilter !== "all" ? selectedFilter : undefined,
+      ),
   });
 
-  const { data: children = [] } = useQuery({
+  const { data: children = [] } = useQuery<Child[]>({
     queryKey: ["children"],
-    queryFn: getChildren,
+    queryFn: () => api.getChildren(),
   });
 
-  const [formData, setFormData] = useState<InsertExpense>({
-    childId: 0,
-    title: "",
-    amount: 0,
-    category: "other",
-    paidBy: "parentA",
-    splitPercentage: 50,
-    date: new Date().toISOString().split('T')[0],
-    receipt: "",
-    status: "pending",
-    notes: ""
-  });
+  const [formData, setFormData] = useState<ExpenseFormData>(createEmptyFormData());
 
   const createMutation = useMutation({
-    mutationFn: createExpense,
+    mutationFn: (data: Record<string, unknown>) => api.createExpense(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast({
@@ -53,18 +74,7 @@ export default function ExpensesPage() {
         description: "The expense has been logged successfully.",
       });
       setIsDialogOpen(false);
-      setFormData({
-        childId: 0,
-        title: "",
-        amount: 0,
-        category: "other",
-        paidBy: "parentA",
-        splitPercentage: 50,
-        date: new Date().toISOString().split('T')[0],
-        receipt: "",
-        status: "pending",
-        notes: ""
-      });
+      setFormData(createEmptyFormData());
     },
     onError: () => {
       toast({
@@ -76,8 +86,8 @@ export default function ExpensesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Expense> }) =>
-      updateExpense(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
+      api.updateExpense(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast({
@@ -88,7 +98,7 @@ export default function ExpensesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteExpense,
+    mutationFn: (id: number) => api.deleteExpense(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast({
@@ -101,8 +111,7 @@ export default function ExpensesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate child is selected
-    if (!formData.childId || formData.childId === 0) {
+    if (!formData.child_id || formData.child_id === 0) {
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -111,7 +120,6 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Validate amount is positive
     if (!formData.amount || formData.amount <= 0) {
       toast({
         variant: "destructive",
@@ -121,41 +129,49 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Convert dollars to cents
-    const expenseData = {
-      ...formData,
-      amount: Math.round(parseFloat(formData.amount.toString()) * 100)
+    const expenseData: Record<string, unknown> = {
+      child_id: formData.child_id,
+      title: formData.title,
+      amount: Math.round(parseFloat(formData.amount.toString()) * 100),
+      category: formData.category,
+      paid_by: formData.paid_by,
+      split_percentage: formData.split_percentage,
+      date: formData.date,
+      receipt: formData.receipt || null,
+      status: formData.status,
+      notes: formData.notes || null,
     };
     createMutation.mutate(expenseData);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
-      case "approved": return "bg-green-100 text-green-800";
-      case "reimbursed": return "bg-blue-100 text-blue-800";
-      default: return "bg-yellow-100 text-yellow-800";
+      case "approved":
+        return "bg-green-100 text-green-800";
+      case "reimbursed":
+        return "bg-blue-100 text-blue-800";
+      default:
+        return "bg-yellow-100 text-yellow-800";
     }
   };
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = (category: string): string => {
     const colors: Record<string, string> = {
       medical: "bg-red-100 text-red-800",
       education: "bg-purple-100 text-purple-800",
       activities: "bg-orange-100 text-orange-800",
       clothing: "bg-pink-100 text-pink-800",
       food: "bg-green-100 text-green-800",
-      other: "bg-gray-100 text-gray-800"
+      other: "bg-gray-100 text-gray-800",
     };
     return colors[category] || colors.other;
   };
 
-  const totalPending = expenses
-    .filter(e => e.status === "pending")
-    .reduce((sum, e) => sum + e.amount, 0) / 100;
+  const totalPending =
+    expenses.filter((e) => e.status === "pending").reduce((sum, e) => sum + e.amount, 0) / 100;
 
-  const totalApproved = expenses
-    .filter(e => e.status === "approved")
-    .reduce((sum, e) => sum + e.amount, 0) / 100;
+  const totalApproved =
+    expenses.filter((e) => e.status === "approved").reduce((sum, e) => sum + e.amount, 0) / 100;
 
   return (
     <Layout>
@@ -194,10 +210,10 @@ export default function ExpensesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="childId">Child</Label>
+                  <Label htmlFor="child_id">Child</Label>
                   <Select
-                    value={formData.childId.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, childId: parseInt(value) })}
+                    value={formData.child_id.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, child_id: parseInt(value) })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select child" />
@@ -256,10 +272,10 @@ export default function ExpensesPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="paidBy">Paid By</Label>
+                    <Label htmlFor="paid_by">Paid By</Label>
                     <Select
-                      value={formData.paidBy}
-                      onValueChange={(value) => setFormData({ ...formData, paidBy: value })}
+                      value={formData.paid_by}
+                      onValueChange={(value) => setFormData({ ...formData, paid_by: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -272,17 +288,17 @@ export default function ExpensesPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="splitPercentage">Split Percentage</Label>
+                  <Label htmlFor="split_percentage">Split Percentage</Label>
                   <Input
-                    id="splitPercentage"
+                    id="split_percentage"
                     type="number"
                     min="0"
                     max="100"
-                    value={formData.splitPercentage}
-                    onChange={(e) => setFormData({ ...formData, splitPercentage: parseInt(e.target.value) })}
+                    value={formData.split_percentage}
+                    onChange={(e) => setFormData({ ...formData, split_percentage: parseInt(e.target.value) })}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Your share: {formData.splitPercentage || 50}% | Other parent: {100 - (formData.splitPercentage || 50)}%
+                    Your share: {formData.split_percentage || 50}% | Other parent: {100 - (formData.split_percentage || 50)}%
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -314,7 +330,7 @@ export default function ExpensesPage() {
           <CardContent>
             <div className="text-2xl font-bold">${totalPending.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {expenses.filter(e => e.status === "pending").length} expenses
+              {expenses.filter((e) => e.status === "pending").length} expenses
             </p>
           </CardContent>
         </Card>
@@ -326,7 +342,7 @@ export default function ExpensesPage() {
           <CardContent>
             <div className="text-2xl font-bold">${totalApproved.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {expenses.filter(e => e.status === "approved").length} expenses
+              {expenses.filter((e) => e.status === "approved").length} expenses
             </p>
           </CardContent>
         </Card>
@@ -395,8 +411,8 @@ export default function ExpensesPage() {
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
                       <p>Amount: <span className="font-semibold text-lg">${(expense.amount / 100).toFixed(2)}</span></p>
-                      <p>Paid by: {expense.paidBy === "parentA" ? "Parent A" : "Parent B"}</p>
-                      <p>Split: {expense.splitPercentage}% / {100 - expense.splitPercentage}%</p>
+                      <p>Paid by: {expense.paid_by === "parentA" ? "Parent A" : "Parent B"}</p>
+                      <p>Split: {expense.split_percentage}% / {100 - expense.split_percentage}%</p>
                       <p>Date: {format(new Date(expense.date), "MMM d, yyyy")}</p>
                       {expense.notes && <p>Notes: {expense.notes}</p>}
                     </div>
@@ -409,7 +425,7 @@ export default function ExpensesPage() {
                           variant="outline"
                           onClick={() => updateMutation.mutate({
                             id: expense.id,
-                            data: { status: "approved" }
+                            data: { status: "approved" },
                           })}
                         >
                           <Check className="h-4 w-4" />
@@ -419,7 +435,7 @@ export default function ExpensesPage() {
                           variant="outline"
                           onClick={() => updateMutation.mutate({
                             id: expense.id,
-                            data: { status: "reimbursed" }
+                            data: { status: "reimbursed" },
                           })}
                         >
                           <X className="h-4 w-4" />
@@ -432,7 +448,7 @@ export default function ExpensesPage() {
                         variant="outline"
                         onClick={() => updateMutation.mutate({
                           id: expense.id,
-                          data: { status: "reimbursed" }
+                          data: { status: "reimbursed" },
                         })}
                       >
                         Mark Reimbursed

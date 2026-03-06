@@ -1,0 +1,21 @@
+{
+  "name": "CoParent Connect",
+  "short_name": "CoParent",
+  "description": "Stress-free co-parenting coordination. Manage schedules, expenses, messages, and more.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "productivity"],
+  "lang": "en"
+}

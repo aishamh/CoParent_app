@@ -8,7 +8,6 @@ import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mail, CheckCircle2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export default function RegisterPage() {
   const { toast } = useToast();
@@ -101,29 +100,27 @@ export default function RegisterPage() {
     setResendLoading(true);
 
     try {
-      // Resend confirmation email using Supabase
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: registeredEmail,
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registeredEmail }),
       });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Failed to resend",
-          description: error.message || "Could not resend verification email. Please try again.",
-        });
-      } else {
-        toast({
-          title: "Verification email resent!",
-          description: "Please check your inbox for the new verification link.",
-        });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Could not resend verification email.");
       }
-    } catch (e: any) {
+
+      toast({
+        title: "Verification email resent!",
+        description: "Please check your inbox for the new verification link.",
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "An error occurred. Please try again.";
       toast({
         variant: "destructive",
         title: "Failed to resend",
-        description: e.message || "An error occurred. Please try again.",
+        description: message,
       });
     } finally {
       setResendLoading(false);

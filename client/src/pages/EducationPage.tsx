@@ -1383,7 +1383,7 @@ export default function EducationPage() {
                                   variant="secondary"
                                   className="text-[10px] h-5"
                                 >
-                                  Currently with {book.assignedTo}
+                                  Currently with {book.assigned_to}
                                 </Badge>
                               </div>
                             </div>
@@ -1458,7 +1458,7 @@ export default function EducationPage() {
                                   {task.title}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Due: {task.dueDate}
+                                  Due: {task.due_date}
                                 </p>
                               </div>
                             </div>
@@ -1649,9 +1649,9 @@ export default function EducationPage() {
                             <p className="text-sm text-foreground leading-relaxed">
                               {note.message}
                             </p>
-                            {note.createdAt && (
+                            {note.created_at && (
                               <p className="text-[11px] text-muted-foreground mt-2">
-                                {new Date(note.createdAt).toLocaleDateString(
+                                {new Date(note.created_at).toLocaleDateString(
                                   "en-GB",
                                   {
                                     day: "numeric",

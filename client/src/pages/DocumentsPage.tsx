@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase, supabaseApi } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,7 +63,6 @@ import {
   CloudUpload,
   HardDrive,
   Clock,
-  ArrowUpRight,
   Eye,
   FileSpreadsheet,
   FileType,
@@ -238,40 +237,31 @@ export default function DocumentsPage() {
   const { data: documents = [], isLoading: isLoadingDocs } = useQuery<DocumentRecord[]>({
     queryKey: ["documents"],
     queryFn: async () => {
-      const { data, error } = await supabaseApi.getDocuments();
-      if (error) throw error;
-      return (data || []) as DocumentRecord[];
+      const result = await api.getDocuments();
+      return (result || []) as DocumentRecord[];
     },
   });
 
   const { data: children = [] } = useQuery<Child[]>({
     queryKey: ["children"],
     queryFn: async () => {
-      const { data, error } = await supabaseApi.getChildren();
-      if (error) throw error;
-      return (data || []) as Child[];
+      const result = await api.getChildren();
+      return result || [];
     },
   });
 
   // ---------------------------------------------------------------------------
-  // Upload logic (Supabase Storage)
+  // Upload logic (via API)
   // ---------------------------------------------------------------------------
 
-  const uploadToSupabase = useCallback(
+  const uploadViaApi = useCallback(
     async (file: File, metadata: { title: string; description: string; category: string; childId: number }) => {
-      const userId = user?.id;
-      if (!userId) throw new Error("You must be signed in to upload documents.");
+      if (!user?.id) throw new Error("You must be signed in to upload documents.");
 
-      // Validate file size
       if (file.size > MAX_FILE_SIZE) {
         throw new Error(`File size exceeds the 10 MB limit. Your file is ${formatFileSize(file.size)}.`);
       }
 
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `${userId}/${timestamp}-${sanitizedName}`;
-
-      // Simulate progress during upload
       let progressInterval: ReturnType<typeof setInterval> | null = null;
       let currentProgress = 0;
 
@@ -289,53 +279,14 @@ export default function DocumentsPage() {
       try {
         startProgress();
 
-        // Upload file to Supabase Storage
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from("documents")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
+        const doc = await api.uploadDocument(file, {
+          title: metadata.title || file.name,
+          description: metadata.description || undefined,
+          category: metadata.category || "other",
+          childId: metadata.childId || undefined,
+        });
 
-        let publicUrl = "";
-
-        if (storageError) {
-          // Fallback: save metadata only with a placeholder URL
-          console.warn("Storage upload failed, saving metadata only:", storageError.message);
-          publicUrl = `placeholder://${filePath}`;
-          toast({
-            title: "File storage unavailable",
-            description: "Document metadata was saved but the file could not be stored. You can try re-uploading later.",
-          });
-        } else {
-          // Get public URL
-          const { data: urlData } = supabase.storage
-            .from("documents")
-            .getPublicUrl(storageData.path);
-          publicUrl = urlData.publicUrl;
-        }
-
-        setUploadProgress(90);
-
-        // Save document metadata to database
-        const { data: doc, error: dbError } = await supabase
-          .from("documents")
-          .insert({
-            title: metadata.title || file.name,
-            description: metadata.description || null,
-            file_path: publicUrl,
-            file_size: file.size,
-            file_type: file.type || "application/octet-stream",
-            category: metadata.category || "other",
-            child_id: metadata.childId || null,
-            uploaded_by: userId,
-            tags: [],
-            shared_with: [],
-          })
-          .select()
-          .single();
-
-        if (dbError) throw dbError;
+        if (!doc) throw new Error("Upload failed -- no document returned.");
 
         setUploadProgress(100);
         stopProgress();
@@ -345,12 +296,12 @@ export default function DocumentsPage() {
         throw err;
       }
     },
-    [user, toast],
+    [user],
   );
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, metadata }: { file: File; metadata: typeof formData }) => {
-      return uploadToSupabase(file, metadata);
+      return uploadViaApi(file, metadata);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -369,17 +320,8 @@ export default function DocumentsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (doc: DocumentRecord) => {
-      // Try to delete from storage first (ignore errors since file may not exist)
-      if (doc.file_path && !doc.file_path.startsWith("placeholder://")) {
-        // Extract the storage path from the public URL
-        const pathMatch = doc.file_path.match(/\/documents\/(.+)$/);
-        if (pathMatch) {
-          await supabase.storage.from("documents").remove([pathMatch[1]]);
-        }
-      }
-      // Delete metadata from database
-      const { error } = await supabase.from("documents").delete().eq("id", doc.id);
-      if (error) throw error;
+      const success = await api.deleteDocument(String(doc.id));
+      if (!success) throw new Error("Failed to delete document.");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -502,10 +444,6 @@ export default function DocumentsPage() {
         );
 
         try {
-          const timestamp = Date.now();
-          const sanitizedName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const filePath = `${user.id}/${timestamp}-${sanitizedName}`;
-
           // Simulate incremental progress
           let progress = 10;
           const interval = setInterval(() => {
@@ -515,55 +453,26 @@ export default function DocumentsPage() {
             );
           }, 250);
 
-          const { data: storageData, error: storageError } = await supabase.storage
-            .from("documents")
-            .upload(filePath, item.file, { cacheControl: "3600", upsert: false });
+          const doc = await api.uploadDocument(item.file, {
+            title: item.file.name.replace(/\.[^/.]+$/, ""),
+            category: "other",
+          });
 
           clearInterval(interval);
 
-          let publicUrl = "";
-          if (storageError) {
-            publicUrl = `placeholder://${filePath}`;
-          } else {
-            const { data: urlData } = supabase.storage
-              .from("documents")
-              .getPublicUrl(storageData.path);
-            publicUrl = urlData.publicUrl;
-          }
-
-          setUploadQueue((prev) =>
-            prev.map((q) => (q.id === item.id ? { ...q, progress: 90 } : q)),
-          );
-
-          const { error: dbError } = await supabase
-            .from("documents")
-            .insert({
-              title: item.file.name.replace(/\.[^/.]+$/, ""),
-              description: null,
-              file_path: publicUrl,
-              file_size: item.file.size,
-              file_type: item.file.type || "application/octet-stream",
-              category: "other",
-              child_id: null,
-              uploaded_by: user.id,
-              tags: [],
-              shared_with: [],
-            })
-            .select()
-            .single();
-
-          if (dbError) throw dbError;
+          if (!doc) throw new Error("Upload failed.");
 
           setUploadQueue((prev) =>
             prev.map((q) =>
               q.id === item.id ? { ...q, progress: 100, status: "complete" as const } : q,
             ),
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : "Upload failed";
           setUploadQueue((prev) =>
             prev.map((q) =>
               q.id === item.id
-                ? { ...q, status: "error" as const, error: err?.message || "Upload failed" }
+                ? { ...q, status: "error" as const, error: errorMessage }
                 : q,
             ),
           );

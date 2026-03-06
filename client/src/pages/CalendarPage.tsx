@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Layout from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabaseApi } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { format, parseISO, startOfYear, endOfYear, eachMonthOfInterval, getDay, getDaysInMonth, startOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,8 +14,51 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Plus, Edit, Trash2, Calendar as CalendarIcon, Download, Upload, Share2, Filter, X, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Event, InsertEvent } from "@shared/schema";
+import type { Event, InsertEvent, Child } from "@shared/schema";
 import { readICSFile, validateICSFile, convertICSEventsToEvents } from "@/lib/ics-parser";
+
+// Form data mirrors InsertEvent (snake_case) plus address fields for the UI
+interface EventFormData {
+  child_id?: number;
+  title: string;
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  time_zone: string;
+  parent: string;
+  type: string;
+  recurrence: string;
+  recurrence_interval: number;
+  recurrence_end: string;
+  recurrence_days: string;
+  description: string;
+  location: string;
+  address: string;
+  city: string;
+  postal_code: string;
+}
+
+const DEFAULT_FORM_DATA: EventFormData = {
+  child_id: undefined,
+  title: "",
+  start_date: "",
+  end_date: "",
+  start_time: "09:00",
+  end_time: "10:00",
+  time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  parent: "A",
+  type: "custody",
+  recurrence: "none",
+  recurrence_interval: 1,
+  recurrence_end: "",
+  recurrence_days: "[]",
+  description: "",
+  location: "",
+  address: "",
+  city: "",
+  postal_code: "",
+};
 
 export default function CalendarPage() {
   const { toast } = useToast();
@@ -34,39 +77,16 @@ export default function CalendarPage() {
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["events"],
-    queryFn: async () => {
-      const { data, error } = await supabaseApi.getEvents();
-      if (error) throw error;
-      // Transform Supabase snake_case to camelCase for compatibility
-      return data?.map(e => ({
-        id: e.id,
-        childId: e.child_id,
-        title: e.title,
-        startDate: e.start_date,
-        endDate: e.end_date,
-        startTime: e.start_time,
-        endTime: e.end_time,
-        timeZone: e.time_zone,
-        parent: e.parent,
-        type: e.type,
-        recurrence: e.recurrence,
-        recurrenceInterval: e.recurrence_interval,
-        recurrenceEnd: e.recurrence_end,
-        recurrenceDays: e.recurrence_days,
-        description: e.description,
-        location: e.location,
-        createdAt: e.created_at,
-      })) || [];
-    }
+    queryFn: () => api.getEvents(),
   });
 
   // Filter events
-  const filteredEvents = events.filter(event => {
+  const filteredEvents = events.filter((event: Event) => {
     if (filterParent !== "all" && event.parent !== filterParent) return false;
     if (filterType !== "all" && event.type !== filterType) return false;
     if (filterChild !== "all") {
-      if (filterChild === "unassigned" && event.childId) return false;
-      if (filterChild !== "unassigned" && event.childId?.toString() !== filterChild) return false;
+      if (filterChild === "unassigned" && event.child_id) return false;
+      if (filterChild !== "unassigned" && event.child_id?.toString() !== filterChild) return false;
     }
     return true;
   });
@@ -118,8 +138,7 @@ export default function CalendarPage() {
   };
 
   const handleExport = () => {
-    // Create iCal format content
-    let icsContent = [
+    const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//Co-Parent App//EN',
@@ -127,15 +146,15 @@ export default function CalendarPage() {
       'METHOD:PUBLISH',
     ];
 
-    filteredEvents.forEach(event => {
-      const startDate = event.startDate.replace(/-/g, '');
-      const endDate = event.endDate.replace(/-/g, '');
-      const startTime = event.startTime.replace(/:/g, '');
-      const endTime = event.endTime.replace(/:/g, '');
+    filteredEvents.forEach((event: Event) => {
+      const startDateFormatted = event.start_date.replace(/-/g, '');
+      const endDateFormatted = event.end_date.replace(/-/g, '');
+      const startTimeFormatted = event.start_time.replace(/:/g, '');
+      const endTimeFormatted = event.end_time.replace(/:/g, '');
 
       icsContent.push('BEGIN:VEVENT');
-      icsContent.push(`DTSTART:${startDate}T${startTime}00`);
-      icsContent.push(`DTEND:${endDate}T${endTime}00`);
+      icsContent.push(`DTSTART:${startDateFormatted}T${startTimeFormatted}00`);
+      icsContent.push(`DTEND:${endDateFormatted}T${endTimeFormatted}00`);
       icsContent.push(`SUMMARY:${event.title}`);
       icsContent.push(`DESCRIPTION:${event.description || ''}`);
       if (event.location) {
@@ -170,7 +189,6 @@ export default function CalendarPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file
     const validation = validateICSFile(file);
     if (!validation.valid) {
       toast({
@@ -187,7 +205,6 @@ export default function CalendarPage() {
         description: "Please wait while we import your events.",
       });
 
-      // Parse ICS file
       const icsEvents = await readICSFile(file);
 
       if (icsEvents.length === 0) {
@@ -199,17 +216,15 @@ export default function CalendarPage() {
         return;
       }
 
-      // Convert to our event format
+      // convertICSEventsToEvents returns camelCase objects; convert to snake_case for Supabase
       const convertedEvents = convertICSEventsToEvents(icsEvents);
 
-      // Create events
       let successCount = 0;
       let errorCount = 0;
 
       for (const eventData of convertedEvents) {
         try {
-          // Transform to Supabase format
-          const supabaseEvent = {
+          const newEvent = {
             child_id: eventData.childId || null,
             title: eventData.title,
             start_date: eventData.startDate,
@@ -226,89 +241,46 @@ export default function CalendarPage() {
             description: eventData.description || null,
             location: eventData.location || null,
           };
-          await supabaseApi.createEvent(supabaseEvent);
+          await api.createEvent(newEvent);
           successCount++;
-        } catch (error) {
-          console.error('Error creating event:', error);
+        } catch (importError: unknown) {
+          console.error('Error creating event:', importError);
           errorCount++;
         }
       }
 
-      // Refresh events
       queryClient.invalidateQueries({ queryKey: ["events"] });
 
       toast({
         title: "Import completed",
         description: `Successfully imported ${successCount} events${errorCount > 0 ? ` (${errorCount} failed)` : ''}.`,
       });
-    } catch (error) {
-      console.error('Import error:', error);
+    } catch (importError: unknown) {
+      console.error('Import error:', importError);
       toast({
         variant: "destructive",
         title: "Import failed",
-        description: error instanceof Error ? error.message : "Failed to import calendar file.",
+        description: importError instanceof Error ? importError.message : "Failed to import calendar file.",
       });
     }
 
-    // Reset input
     e.target.value = '';
   };
 
   const { data: children = [] } = useQuery({
     queryKey: ["children"],
-    queryFn: async () => {
-      const { data, error } = await supabaseApi.getChildren();
-      if (error) throw error;
-      return data || [];
-    }
+    queryFn: () => api.getChildren(),
   });
 
-  const [formData, setFormData] = useState<Partial<InsertEvent>>({
-    childId: undefined,
-    title: "",
-    startDate: "",
-    endDate: "",
-    startTime: "09:00",
-    endTime: "10:00",
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    parent: "A",
-    type: "custody",
-    recurrence: "none",
-    recurrenceInterval: 1,
-    recurrenceEnd: "",
-    recurrenceDays: "[]",
-    description: "",
-    location: "",
-    address: "",
-    city: "",
-    postalCode: "",
-  });
+  const [formData, setFormData] = useState<EventFormData>({ ...DEFAULT_FORM_DATA });
 
   const [showRepeatOptions, setShowRepeatOptions] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: async (event: any) => {
-      // Transform camelCase to snake_case for Supabase
-      const supabaseEvent = {
-        child_id: event.childId || null,
-        title: event.title,
-        start_date: event.startDate,
-        end_date: event.endDate,
-        start_time: event.startTime,
-        end_time: event.endTime,
-        time_zone: event.timeZone,
-        parent: event.parent,
-        type: event.type,
-        recurrence: event.recurrence || null,
-        recurrence_interval: event.recurrenceInterval || 1,
-        recurrence_end: event.recurrenceEnd || null,
-        recurrence_days: event.recurrenceDays || null,
-        description: event.description || null,
-        location: event.location || null,
-      };
-      const { data, error } = await supabaseApi.createEvent(supabaseEvent);
-      if (error) throw error;
-      return data;
+    mutationFn: async (event: Record<string, unknown>) => {
+      const result = await api.createEvent(event);
+      if (!result) throw new Error("Failed to create event");
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -318,38 +290,20 @@ export default function CalendarPage() {
       });
       closeDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Event creation error:", error);
       toast({
         variant: "destructive",
         title: "Error creating event",
-        description: error?.message || "Failed to create event. Please try again.",
+        description: error.message || "Failed to create event. Please try again.",
       });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Event> }) => {
-      // Transform camelCase to snake_case for Supabase
-      const supabaseUpdates: any = {};
-      if (data.childId !== undefined) supabaseUpdates.child_id = data.childId;
-      if (data.title !== undefined) supabaseUpdates.title = data.title;
-      if (data.startDate !== undefined) supabaseUpdates.start_date = data.startDate;
-      if (data.endDate !== undefined) supabaseUpdates.end_date = data.endDate;
-      if (data.startTime !== undefined) supabaseUpdates.start_time = data.startTime;
-      if (data.endTime !== undefined) supabaseUpdates.end_time = data.endTime;
-      if (data.timeZone !== undefined) supabaseUpdates.time_zone = data.timeZone;
-      if (data.parent !== undefined) supabaseUpdates.parent = data.parent;
-      if (data.type !== undefined) supabaseUpdates.type = data.type;
-      if (data.recurrence !== undefined) supabaseUpdates.recurrence = data.recurrence;
-      if (data.recurrenceInterval !== undefined) supabaseUpdates.recurrence_interval = data.recurrenceInterval;
-      if (data.recurrenceEnd !== undefined) supabaseUpdates.recurrence_end = data.recurrenceEnd;
-      if (data.recurrenceDays !== undefined) supabaseUpdates.recurrence_days = data.recurrenceDays;
-      if (data.description !== undefined) supabaseUpdates.description = data.description;
-      if (data.location !== undefined) supabaseUpdates.location = data.location;
-
-      const { data: result, error } = await supabaseApi.updateEvent(id, supabaseUpdates);
-      if (error) throw error;
+    mutationFn: async ({ id, data }: { id: number; data: Record<string, unknown> }) => {
+      const result = await api.updateEvent(id, data);
+      if (!result) throw new Error("Failed to update event");
       return result;
     },
     onSuccess: () => {
@@ -360,20 +314,20 @@ export default function CalendarPage() {
       });
       closeDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Event update error:", error);
       toast({
         variant: "destructive",
         title: "Error updating event",
-        description: error?.message || "Failed to update event. Please try again.",
+        description: error.message || "Failed to update event. Please try again.",
       });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const { error } = await supabaseApi.deleteEvent(id);
-      if (error) throw error;
+      const success = await api.deleteEvent(id);
+      if (!success) throw new Error("Failed to delete event");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -383,12 +337,12 @@ export default function CalendarPage() {
       });
       closeDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Event deletion error:", error);
       toast({
         variant: "destructive",
         title: "Error deleting event",
-        description: error?.message || "Failed to delete event. Please try again.",
+        description: error.message || "Failed to delete event. Please try again.",
       });
     },
   });
@@ -399,68 +353,45 @@ export default function CalendarPage() {
     setSelectedEvent(null);
     setSelectedDate(null);
     setShowRepeatOptions(false);
-    setFormData({
-      childId: undefined,
-      title: "",
-      startDate: "",
-      endDate: "",
-      startTime: "09:00",
-      endTime: "10:00",
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      parent: "A",
-      type: "custody",
-      recurrence: "none",
-      recurrenceInterval: 1,
-      recurrenceEnd: "",
-      recurrenceDays: "[]",
-      description: "",
-      location: "",
-      address: "",
-      city: "",
-      postalCode: "",
-    });
+    setFormData({ ...DEFAULT_FORM_DATA });
   };
 
   const handleDateClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    // Find any event that overlaps with this date
-    const existingEvent = events.find(e => {
-      return dateStr >= e.startDate && dateStr <= e.endDate;
+    const existingEvent = events.find((e: Event) => {
+      return dateStr >= e.start_date && dateStr <= e.end_date;
     });
 
     if (existingEvent) {
-      // Edit existing event - handle fields that may not exist in Supabase
       setSelectedEvent(existingEvent);
       setFormData({
-        childId: existingEvent.childId,
+        child_id: existingEvent.child_id ?? undefined,
         title: existingEvent.title,
-        startDate: existingEvent.startDate,
-        endDate: existingEvent.endDate,
-        startTime: existingEvent.startTime,
-        endTime: existingEvent.endTime,
-        timeZone: existingEvent.timeZone,
+        start_date: existingEvent.start_date,
+        end_date: existingEvent.end_date,
+        start_time: existingEvent.start_time,
+        end_time: existingEvent.end_time,
+        time_zone: existingEvent.time_zone,
         parent: existingEvent.parent,
         type: existingEvent.type,
         recurrence: existingEvent.recurrence || "none",
-        recurrenceInterval: existingEvent.recurrenceInterval || 1,
-        recurrenceEnd: existingEvent.recurrenceEnd || "",
-        recurrenceDays: existingEvent.recurrenceDays || "[]",
+        recurrence_interval: existingEvent.recurrence_interval || 1,
+        recurrence_end: existingEvent.recurrence_end || "",
+        recurrence_days: existingEvent.recurrence_days || "[]",
         description: existingEvent.description || "",
         location: existingEvent.location || "",
-        // These fields don't exist in Supabase events table, default to empty string
-        address: (existingEvent as any).address || "",
-        city: (existingEvent as any).city || "",
-        postalCode: (existingEvent as any).postalCode || "",
+        address: existingEvent.address || "",
+        city: existingEvent.city || "",
+        postal_code: existingEvent.postal_code || "",
       });
       setIsEditMode(true);
       setIsDialogOpen(true);
     } else {
-      // Create new event
       setSelectedDate(dateStr);
       setFormData({
         ...formData,
-        startDate: dateStr,
-        endDate: dateStr,
+        start_date: dateStr,
+        end_date: dateStr,
       });
       setIsEditMode(false);
       setIsDialogOpen(true);
@@ -470,43 +401,44 @@ export default function CalendarPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prepare event data with proper defaults
-    // Exclude fields not in Supabase schema: address, city, postalCode
-    const { childId, recurrence, recurrenceEnd, recurrenceDays, address, city, postalCode, ...restFormData } = formData;
+    // Separate address fields (UI-only) from the event data
+    const { address, city, postal_code, recurrence, recurrence_end, recurrence_days, child_id, ...restFormData } = formData;
 
-    const eventData = {
+    const eventData: Record<string, unknown> = {
       ...restFormData,
-      ...(childId && childId !== 0 ? { childId } : {}), // Only include childId if it's a valid number
-      startDate: formData.startDate || new Date().toISOString().split('T')[0],
-      endDate: formData.endDate || new Date().toISOString().split('T')[0],
-      startTime: formData.startTime || "09:00",
-      endTime: formData.endTime || "10:00",
-      timeZone: formData.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ...(child_id && child_id !== 0 ? { child_id } : {}),
+      start_date: formData.start_date || new Date().toISOString().split('T')[0],
+      end_date: formData.end_date || new Date().toISOString().split('T')[0],
+      start_time: formData.start_time || "09:00",
+      end_time: formData.end_time || "10:00",
+      time_zone: formData.time_zone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       // Only include recurrence fields if they have meaningful values
       ...(recurrence && recurrence !== "none" ? { recurrence } : {}),
-      ...(formData.recurrenceInterval && formData.recurrenceInterval !== 1 ? { recurrenceInterval: formData.recurrenceInterval } : {}),
-      ...(recurrenceEnd ? { recurrenceEnd } : {}),
-      ...(recurrenceDays && recurrenceDays !== "[]" ? { recurrenceDays } : {}),
+      ...(formData.recurrence_interval && formData.recurrence_interval !== 1 ? { recurrence_interval: formData.recurrence_interval } : {}),
+      ...(recurrence_end ? { recurrence_end } : {}),
+      ...(recurrence_days && recurrence_days !== "[]" ? { recurrence_days } : {}),
+      // Include address fields that exist in the schema
+      ...(address ? { address } : {}),
+      ...(city ? { city } : {}),
+      ...(postal_code ? { postal_code } : {}),
     };
 
     // Combine address info into description if present
-    if (address || city || postalCode) {
-      const addressParts = [address, city, postalCode].filter(Boolean);
-      const currentDescription = eventData.description || "";
+    if (address || city || postal_code) {
+      const addressParts = [address, city, postal_code].filter(Boolean);
+      const currentDescription = (eventData.description as string) || "";
       eventData.description = currentDescription
         ? `${currentDescription}\n\nAddress: ${addressParts.join(", ")}`
         : `Address: ${addressParts.join(", ")}`;
     }
 
-    console.log("Submitting event data:", eventData);
-
     if (isEditMode && selectedEvent) {
       updateMutation.mutate({
         id: selectedEvent.id,
-        data: eventData as Partial<Event>,
+        data: eventData,
       });
     } else {
-      createMutation.mutate(eventData as Omit<Event, "id" | "createdAt">);
+      createMutation.mutate(eventData);
     }
   };
 
@@ -519,14 +451,13 @@ export default function CalendarPage() {
   // Calendar rendering
   const currentYear = new Date().getFullYear();
   const [viewYear, setViewYear] = useState(currentYear);
-  const startDate = startOfYear(new Date(viewYear, 0, 1));
-  const endDate = endOfYear(startDate);
-  const months = eachMonthOfInterval({ start: startDate, end: endDate });
+  const yearStart = startOfYear(new Date(viewYear, 0, 1));
+  const yearEnd = endOfYear(yearStart);
+  const months = eachMonthOfInterval({ start: yearStart, end: yearEnd });
 
   const getEventForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    // Find events that overlap with this date (startDate <= date <= endDate)
-    return filteredEvents.find(e => dateStr >= e.startDate && dateStr <= e.endDate);
+    return filteredEvents.find((e: Event) => dateStr >= e.start_date && dateStr <= e.end_date);
   };
 
   if (isLoading) {
@@ -646,8 +577,8 @@ export default function CalendarPage() {
               <h3 className="font-display font-bold text-lg mb-4 text-center">{format(month, 'MMMM')}</h3>
 
               <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-2">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                  <div key={d} className="font-medium">{d}</div>
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, idx) => (
+                  <div key={`${d}-${idx}`} className="font-medium">{d}</div>
                 ))}
               </div>
 
@@ -697,9 +628,9 @@ export default function CalendarPage() {
                             <div className="text-xs text-muted-foreground">
                               <p className="font-semibold text-foreground capitalize">{event.title}</p>
                               <p className="capitalize">{event.type} • Parent {event.parent}</p>
-                              <p>{event.startTime} - {event.endTime} ({event.timeZone})</p>
-                              {event.startDate !== event.endDate && (
-                                <p>{format(parseISO(event.startDate), 'MMM do')} - {format(parseISO(event.endDate), 'MMM do')}</p>
+                              <p>{event.start_time} - {event.end_time} ({event.time_zone})</p>
+                              {event.start_date !== event.end_date && (
+                                <p>{format(parseISO(event.start_date), 'MMM do')} - {format(parseISO(event.end_date), 'MMM do')}</p>
                               )}
                               {event.recurrence && event.recurrence !== 'none' && (
                                 <p className="text-primary">Repeats {event.recurrence}</p>
@@ -747,31 +678,31 @@ export default function CalendarPage() {
                 {/* Date and Time Row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date *</Label>
+                    <Label htmlFor="start_date">Start Date *</Label>
                     <Input
-                      id="startDate"
+                      id="start_date"
                       type="date"
-                      value={formData.startDate}
+                      value={formData.start_date}
                       onChange={(e) => {
                         const newStartDate = e.target.value;
                         setFormData({
                           ...formData,
-                          startDate: newStartDate,
-                          endDate: formData.endDate && formData.startDate && formData.endDate < formData.startDate
+                          start_date: newStartDate,
+                          end_date: formData.end_date && formData.start_date && formData.end_date < formData.start_date
                             ? newStartDate
-                            : formData.endDate
+                            : formData.end_date
                         });
                       }}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time *</Label>
+                    <Label htmlFor="start_time">Start Time *</Label>
                     <Input
-                      id="startTime"
+                      id="start_time"
                       type="time"
-                      value={formData.startTime}
-                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                       required
                     />
                   </div>
@@ -779,23 +710,23 @@ export default function CalendarPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date *</Label>
+                    <Label htmlFor="end_date">End Date *</Label>
                     <Input
-                      id="endDate"
+                      id="end_date"
                       type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      min={formData.startDate}
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                      min={formData.start_date}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time *</Label>
+                    <Label htmlFor="end_time">End Time *</Label>
                     <Input
-                      id="endTime"
+                      id="end_time"
                       type="time"
-                      value={formData.endTime}
-                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      value={formData.end_time}
+                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
                       required
                     />
                   </div>
@@ -805,15 +736,15 @@ export default function CalendarPage() {
                 <div className="bg-muted/50 p-3 rounded-lg space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Time Zone:</span>
-                    <span className="font-medium">{formData.timeZone}</span>
+                    <span className="font-medium">{formData.time_zone}</span>
                   </div>
-                  {formData.startDate && formData.endDate && formData.startTime && formData.endTime && (
+                  {formData.start_date && formData.end_date && formData.start_time && formData.end_time && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Duration:</span>
                       <span className="font-medium">
-                        {format(parseISO(formData.startDate), 'MMM do, yyyy')} at {formData.startTime} - {formData.endTime}
-                        {formData.startDate !== formData.endDate && (
-                          <> to {format(parseISO(formData.endDate), 'MMM do, yyyy')}</>
+                        {format(parseISO(formData.start_date), 'MMM do, yyyy')} at {formData.start_time} - {formData.end_time}
+                        {formData.start_date !== formData.end_date && (
+                          <> to {format(parseISO(formData.end_date), 'MMM do, yyyy')}</>
                         )}
                       </span>
                     </div>
@@ -823,17 +754,17 @@ export default function CalendarPage() {
                 {/* Child and Parent Row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="childId">Child</Label>
+                    <Label htmlFor="child_id">Child</Label>
                     <Select
-                      value={formData.childId?.toString() || "all"}
-                      onValueChange={(value) => setFormData({ ...formData, childId: value === "all" ? undefined : parseInt(value) })}
+                      value={formData.child_id?.toString() || "all"}
+                      onValueChange={(value: string) => setFormData({ ...formData, child_id: value === "all" ? undefined : parseInt(value) })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All children" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All children</SelectItem>
-                        {children.map((child) => (
+                        {children.map((child: Child) => (
                           <SelectItem key={child.id} value={child.id.toString()}>
                             {child.name}
                           </SelectItem>
@@ -845,7 +776,7 @@ export default function CalendarPage() {
                     <Label htmlFor="parent">Parent *</Label>
                     <Select
                       value={formData.parent}
-                      onValueChange={(value) => setFormData({ ...formData, parent: value as any })}
+                      onValueChange={(value: string) => setFormData({ ...formData, parent: value })}
                       required
                     >
                       <SelectTrigger>
@@ -864,29 +795,32 @@ export default function CalendarPage() {
                   <Label htmlFor="type">Event Type *</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+                    onValueChange={(value: string) => setFormData({ ...formData, type: value })}
                     required
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="custody">👨‍👩‍👧‍👦 Custody</SelectItem>
-                      <SelectItem value="holiday">🎉 Holiday</SelectItem>
-                      <SelectItem value="activity">⚽ Activity</SelectItem>
-                      <SelectItem value="travel">✈️ Travel</SelectItem>
+                      <SelectItem value="custody">Custody</SelectItem>
+                      <SelectItem value="holiday">Holiday</SelectItem>
+                      <SelectItem value="activity">Activity</SelectItem>
+                      <SelectItem value="travel">Travel</SelectItem>
+                      <SelectItem value="medical">Medical</SelectItem>
+                      <SelectItem value="school">School</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Repeat Section - Google Calendar Style */}
+                {/* Repeat Section */}
                 <div className="space-y-3 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="recurrence">Repeat</Label>
                     <Select
                       value={formData.recurrence || "none"}
-                      onValueChange={(value) => {
-                        setFormData({ ...formData, recurrence: value as any });
+                      onValueChange={(value: string) => {
+                        setFormData({ ...formData, recurrence: value });
                         setShowRepeatOptions(value !== "none");
                       }}
                     >
@@ -920,20 +854,20 @@ export default function CalendarPage() {
                           <div className="flex gap-1">
                             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
                               <button
-                                key={day}
+                                key={`${day}-${idx}`}
                                 type="button"
                                 className={cn(
                                   "w-8 h-8 rounded-md text-xs font-medium transition-colors",
-                                  JSON.parse(formData.recurrenceDays || "[]").includes(idx)
+                                  JSON.parse(formData.recurrence_days || "[]").includes(idx)
                                     ? "bg-primary text-white"
                                     : "bg-background border border-border hover:bg-muted"
                                 )}
                                 onClick={() => {
-                                  const days = JSON.parse(formData.recurrenceDays || "[]");
+                                  const days: number[] = JSON.parse(formData.recurrence_days || "[]");
                                   const newDays = days.includes(idx)
                                     ? days.filter((d: number) => d !== idx)
                                     : [...days, idx];
-                                  setFormData({ ...formData, recurrenceDays: JSON.stringify(newDays) });
+                                  setFormData({ ...formData, recurrence_days: JSON.stringify(newDays) });
                                 }}
                               >
                                 {day}
@@ -944,15 +878,15 @@ export default function CalendarPage() {
                       )}
 
                       <div className="space-y-2">
-                        <Label htmlFor="recurrenceEnd" className="text-xs">Ends</Label>
+                        <Label htmlFor="recurrence_end" className="text-xs">Ends</Label>
                         <div className="flex items-center gap-2">
                           <Input
-                            id="recurrenceEnd"
+                            id="recurrence_end"
                             type="date"
-                            value={formData.recurrenceEnd || ""}
-                            onChange={(e) => setFormData({ ...formData, recurrenceEnd: e.target.value })}
+                            value={formData.recurrence_end || ""}
+                            onChange={(e) => setFormData({ ...formData, recurrence_end: e.target.value })}
                             placeholder="Never"
-                            min={formData.startDate}
+                            min={formData.start_date}
                           />
                         </div>
                       </div>
@@ -994,25 +928,25 @@ export default function CalendarPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal/ZIP Code</Label>
+                    <Label htmlFor="postal_code">Postal/ZIP Code</Label>
                     <Input
-                      id="postalCode"
+                      id="postal_code"
                       placeholder="0001"
-                      value={formData.postalCode || ""}
-                      onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                      value={formData.postal_code || ""}
+                      onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
                     />
                   </div>
 
-                  {(formData.address || formData.city || formData.postalCode) && (
+                  {(formData.address || formData.city || formData.postal_code) && (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const address = [formData.address, formData.city, formData.postalCode]
+                        const fullAddress = [formData.address, formData.city, formData.postal_code]
                           .filter(Boolean)
                           .join(', ');
-                        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
                         window.open(mapUrl, '_blank');
                       }}
                       className="w-full"
@@ -1101,6 +1035,9 @@ export default function CalendarPage() {
                     <SelectItem value="holiday">Holiday</SelectItem>
                     <SelectItem value="activity">Activity</SelectItem>
                     <SelectItem value="travel">Travel</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="school">School</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1114,7 +1051,7 @@ export default function CalendarPage() {
                   <SelectContent>
                     <SelectItem value="all">All Children</SelectItem>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {children.map((child) => (
+                    {children.map((child: Child) => (
                       <SelectItem key={child.id} value={child.id.toString()}>
                         {child.name}
                       </SelectItem>
@@ -1195,7 +1132,7 @@ export default function CalendarPage() {
               </div>
 
               <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-                <p className="font-medium mb-1">💡 Tips:</p>
+                <p className="font-medium mb-1">Tips:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
                   <li>Copy the link and send it via your preferred messaging app</li>
                   <li>Export to .ics and import into Google Calendar, Apple Calendar, or Outlook</li>

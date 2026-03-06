@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Bell, Shield, Palette, Globe, Download, AlertTriangle, Users } from "lucide-react";
-import { supabaseApi } from "@/lib/supabase";
+import { api } from "@/lib/api";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -72,11 +72,11 @@ export default function SettingsPage() {
   // Load parent names on mount
   useEffect(() => {
     if (user) {
-      supabaseApi.getProfile(user.id).then(({ data }) => {
-        if (data) {
+      api.getProfile(user.id).then((profile) => {
+        if (profile) {
           setParentNames({
-            parentAName: data.parent_a_name || "Parent A",
-            parentBName: data.parent_b_name || "Parent B"
+            parentAName: profile.parent_a_name || "Parent A",
+            parentBName: profile.parent_b_name || "Parent B"
           });
         }
       });
@@ -86,21 +86,20 @@ export default function SettingsPage() {
   const handleSaveParentNames = async () => {
     if (!user) return;
 
-    const { error } = await supabaseApi.updateProfile(user.id, {
-      parent_a_name: parentNames.parentAName,
-      parent_b_name: parentNames.parentBName
-    });
-
-    if (error) {
+    try {
+      await api.updateProfile(user.id, {
+        parent_a_name: parentNames.parentAName,
+        parent_b_name: parentNames.parentBName
+      });
+      toast({
+        title: "Parent names updated",
+        description: "Your custom parent names have been saved.",
+      });
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to update parent names.",
-      });
-    } else {
-      toast({
-        title: "Parent names updated",
-        description: "Your custom parent names have been saved.",
       });
     }
   };

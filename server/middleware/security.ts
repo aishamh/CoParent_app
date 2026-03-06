@@ -13,7 +13,7 @@ export const contentSecurityPolicy = (
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://images.unsplash.com https://picsum.photos",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com",
+    "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com",
     "frame-src 'self' https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'",
