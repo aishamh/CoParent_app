@@ -27,6 +27,8 @@ export type ScreensStackParamList = {
   Education: undefined;
   Social: undefined;
   Settings: undefined;
+  ParentingPlan: undefined;
+  ExchangeTracking: undefined;
   AddEvent: { initialDate?: string } | undefined;
 };
 

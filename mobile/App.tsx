@@ -31,6 +31,8 @@ import DocumentsScreen from "./src/screens/DocumentsScreen";
 import EducationScreen from "./src/screens/EducationScreen";
 import SocialScreen from "./src/screens/SocialScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import ParentingPlanScreen from "./src/screens/ParentingPlanScreen";
+import ExchangeTrackingScreen from "./src/screens/ExchangeTrackingScreen";
 
 import type {
   RootStackParamList,
@@ -163,6 +165,16 @@ function MainNavigator() {
       <MainStack.Screen name="Education" component={EducationScreen} />
       <MainStack.Screen name="Social" component={SocialScreen} />
       <MainStack.Screen name="Settings" component={SettingsScreen} />
+      <MainStack.Screen
+        name="ParentingPlan"
+        component={ParentingPlanScreen}
+        options={{ title: "Parenting Plan" }}
+      />
+      <MainStack.Screen
+        name="ExchangeTracking"
+        component={ExchangeTrackingScreen}
+        options={{ title: "Exchange Tracking" }}
+      />
     </MainStack.Navigator>
   );
 }
