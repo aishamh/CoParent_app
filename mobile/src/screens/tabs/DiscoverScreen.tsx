@@ -50,14 +50,14 @@ interface Category {
 // ---------------------------------------------------------------------------
 
 const CATEGORIES: Category[] = [
-  { key: "cinema", label: "Cinema", icon: "film", color: "#6366F1" },
-  { key: "amusement", label: "Amusement Parks", icon: "map", color: "#EC4899" },
-  { key: "play", label: "Play Centers", icon: "smile", color: "#F59E0B" },
-  { key: "museum", label: "Museums", icon: "book", color: "#8B5CF6" },
-  { key: "outdoor", label: "Outdoor", icon: "sun", color: "#22C55E" },
-  { key: "sports", label: "Sports", icon: "activity", color: "#3B82F6" },
-  { key: "arts", label: "Arts", icon: "edit-3", color: "#F97316" },
-  { key: "swimming", label: "Swimming", icon: "droplet", color: "#06B6D4" },
+  { key: "cinema", label: "Cinema", icon: "film", color: "#818CF8" },
+  { key: "amusement", label: "Amusement Parks", icon: "map", color: "#F472B6" },
+  { key: "play", label: "Play Centers", icon: "smile", color: "#FBBF24" },
+  { key: "museum", label: "Museums", icon: "book", color: "#A78BFA" },
+  { key: "outdoor", label: "Outdoor", icon: "sun", color: "#4ADE80" },
+  { key: "sports", label: "Sports", icon: "activity", color: "#60A5FA" },
+  { key: "arts", label: "Arts", icon: "edit-3", color: "#FB923C" },
+  { key: "swimming", label: "Swimming", icon: "droplet", color: "#22D3EE" },
 ];
 
 const PRICE_LABELS = ["Free", "$", "$$", "$$$", "$$$$"];
@@ -342,17 +342,17 @@ function HeroHeader({
   onChangeSearch: (text: string) => void;
 }) {
   return (
-    <View style={[styles.heroContainer, { backgroundColor: colors.accent }]}>
+    <View style={[styles.heroContainer, { backgroundColor: colors.background }]}>
       <View style={styles.heroTopRow}>
         <View>
           <View
-            style={[styles.heroBadge, { backgroundColor: colors.primary }]}
+            style={[styles.heroBadge, { backgroundColor: colors.primary + "18" }]}
           >
-            <Icon name="compass" size={12} color={colors.primaryForeground} />
+            <Icon name="compass" size={12} color={colors.primary} />
             <Text
               style={[
                 styles.heroBadgeText,
-                { color: colors.primaryForeground },
+                { color: colors.primary },
               ]}
             >
               Explore
@@ -446,11 +446,14 @@ function CategoryGrid({
             <View
               style={[
                 styles.categoryIconCircle,
-                { backgroundColor: cat.color },
-                isSelected && styles.categoryIconCircleSelected,
+                { backgroundColor: cat.color + "20" },
+                isSelected && [
+                  styles.categoryIconCircleSelected,
+                  { backgroundColor: cat.color + "35" },
+                ],
               ]}
             >
-              <Icon name={cat.icon} size={22} color="#FFFFFF" />
+              <Icon name={cat.icon} size={22} color={cat.color} />
             </View>
             <Text
               style={[
@@ -469,20 +472,33 @@ function CategoryGrid({
   );
 }
 
-function StarRating({ rating }: { rating: number }) {
+function StarRating({
+  rating,
+  colors,
+}: {
+  rating: number;
+  colors: ColorPalette;
+}) {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating - fullStars >= 0.3;
 
   return (
     <View style={styles.starRow}>
       {Array.from({ length: fullStars }, (_, i) => (
-        <Icon key={`full-${i}`} name="star" size={13} color="#F59E0B" />
+        <Icon key={`full-${i}`} name="star" size={13} color={colors.amber} />
       ))}
-      {hasHalfStar && <Icon name="star" size={13} color="#FBBF24" />}
+      {hasHalfStar && (
+        <Icon name="star" size={13} color={colors.amber + "80"} />
+      )}
       {Array.from(
         { length: 5 - fullStars - (hasHalfStar ? 1 : 0) },
         (_, i) => (
-          <Icon key={`empty-${i}`} name="star" size={13} color="#D1D5DB" />
+          <Icon
+            key={`empty-${i}`}
+            name="star"
+            size={13}
+            color={colors.border}
+          />
         ),
       )}
     </View>
@@ -523,23 +539,32 @@ function ActivityCard({
     <Card
       style={{
         backgroundColor: colors.card,
-        marginBottom: 16,
+        marginBottom: 20,
+        marginHorizontal: 20,
         padding: 0,
         overflow: "hidden" as const,
+        borderRadius: 16,
       }}
     >
       {/* Color header placeholder */}
       <View
         style={[
           styles.cardImagePlaceholder,
-          { backgroundColor: activity.imageColor + "25" },
+          { backgroundColor: categoryColor + "12" },
         ]}
       >
-        <Icon
-          name={category?.icon ?? "map-pin"}
-          size={36}
-          color={activity.imageColor}
-        />
+        <View
+          style={[
+            styles.cardImageIconCircle,
+            { backgroundColor: categoryColor + "18" },
+          ]}
+        >
+          <Icon
+            name={category?.icon ?? "map-pin"}
+            size={28}
+            color={categoryColor}
+          />
+        </View>
       </View>
 
       <View style={styles.cardBody}>
@@ -565,7 +590,7 @@ function ActivityCard({
 
         {/* Rating row */}
         <View style={styles.ratingRow}>
-          <StarRating rating={activity.rating} />
+          <StarRating rating={activity.rating} colors={colors} />
           <Text style={[styles.ratingNumber, { color: colors.foreground }]}>
             {activity.rating.toFixed(1)}
           </Text>
@@ -644,16 +669,20 @@ function ActivityCard({
           }}
           style={[
             styles.addCalendarButton,
-            { backgroundColor: colors.primary },
+            {
+              backgroundColor: colors.primary + "10",
+              borderWidth: 1.5,
+              borderColor: colors.primary + "40",
+            },
           ]}
           accessibilityRole="button"
           accessibilityLabel={`Add ${activity.name} to Calendar`}
         >
-          <Icon name="calendar" size={15} color={colors.primaryForeground} />
+          <Icon name="calendar" size={15} color={colors.primary} />
           <Text
             style={[
               styles.addCalendarText,
-              { color: colors.primaryForeground },
+              { color: colors.primary },
             ]}
           >
             Add to Calendar
@@ -979,7 +1008,14 @@ const styles = StyleSheet.create({
 
   // Activity cards
   cardImagePlaceholder: {
-    height: 110,
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardImageIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
   },
