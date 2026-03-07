@@ -180,6 +180,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getFamilyMembers(familyId: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.family_id, familyId));
+  }
+
   // Children methods
   async getChildren(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Child>> {
     const condition = familyId ? eq(children.family_id, familyId) : undefined;

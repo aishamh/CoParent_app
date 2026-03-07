@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { useAuth } from "../../src/auth/useAuth";
 import { useTheme } from "../../src/theme/useTheme";
 import { useMessages, useSendMessage, useUnreadCount } from "../../src/hooks/useMessages";
+import { useFamilyMembers } from "../../src/hooks/useFamily";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import { formatRelative } from "../../src/utils/formatDate";
 import type { Message } from "../../src/types/schema";
@@ -162,15 +163,20 @@ export default function MessagesScreen() {
   const { colors } = useTheme();
   const { data: messages = [], isLoading } = useMessages();
   const { data: unreadCount = 0 } = useUnreadCount();
+  const { data: familyMembers = [] } = useFamilyMembers();
   const sendMessageMutation = useSendMessage();
 
-  useRefreshOnFocus(["messages"]);
+  useRefreshOnFocus(["messages", "familyMembers"]);
+
+  // Find the co-parent (any family member who isn't the current user)
+  const coParent = familyMembers.find((member) => member.id !== user?.id);
+  const coParentName = coParent?.display_name || coParent?.username || "Co-Parent";
 
   const handleSend = (content: string) => {
-    if (!user) return;
+    if (!user || !coParent) return;
 
     sendMessageMutation.mutate({
-      receiver_id: 0,
+      receiver_id: Number(coParent.id),
       content,
     });
   };
@@ -185,7 +191,14 @@ export default function MessagesScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
       >
         <View style={styles.headerRow}>
-          <Text style={[styles.header, { color: colors.foreground }]}>Messages</Text>
+          <View>
+            <Text style={[styles.header, { color: colors.foreground }]}>Messages</Text>
+            {coParent && (
+              <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>
+                with {coParentName}
+              </Text>
+            )}
+          </View>
           {unreadCount > 0 && (
             <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
               <Text style={[styles.unreadBadgeText, { color: colors.primaryForeground }]}>{unreadCount}</Text>
@@ -193,7 +206,15 @@ export default function MessagesScreen() {
           )}
         </View>
 
-        {isLoading ? (
+        {!coParent && !isLoading ? (
+          <View style={styles.emptyState}>
+            <Feather name="users" size={48} color={colors.border} />
+            <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>No co-parent connected</Text>
+            <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+              Share your invite code so your co-parent can join your family.
+            </Text>
+          </View>
+        ) : isLoading ? (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
@@ -243,6 +264,10 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: "700",
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
   },
   unreadBadge: {
     marginLeft: 10,

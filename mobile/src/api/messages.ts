@@ -1,10 +1,11 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Message } from "../types/schema";
 
 export async function getMessages(otherUserId?: number): Promise<Message[]> {
   try {
     const params = otherUserId ? `?otherUserId=${otherUserId}` : "";
-    return await fetchApi<Message[]>(`/api/messages${params}`);
+    const response = await fetchApi<PaginatedResponse<Message>>(`/api/messages${params}`);
+    return response.data;
   } catch {
     return [];
   }

@@ -1,10 +1,11 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Activity } from "../types/schema";
 
 export async function getActivities(season?: string): Promise<Activity[]> {
   try {
     const params = season ? `?season=${encodeURIComponent(season)}` : "";
-    return await fetchApi<Activity[]>(`/api/activities${params}`);
+    const response = await fetchApi<PaginatedResponse<Activity>>(`/api/activities${params}`);
+    return response.data;
   } catch {
     return [];
   }

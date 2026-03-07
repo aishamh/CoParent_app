@@ -202,7 +202,7 @@ import { sql } from "@vercel/postgres";
 var db = drizzle(sql, { schema: tables_exports });
 
 // server/storage.ts
-import { eq, and, or, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, count } from "drizzle-orm";
 var DatabaseStorage = class {
   // Family methods
   async createFamily(name, createdBy) {
@@ -239,12 +239,19 @@ var DatabaseStorage = class {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
+  async getFamilyMembers(familyId) {
+    return db.select().from(users).where(eq(users.family_id, familyId));
+  }
   // Children methods
-  async getChildren(familyId) {
-    if (familyId) {
-      return db.select().from(children).where(eq(children.family_id, familyId));
+  async getChildren(familyId, pagination) {
+    const condition = familyId ? eq(children.family_id, familyId) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(children).where(condition);
+    let query = db.select().from(children).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(children);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getChild(id) {
     const [child] = await db.select().from(children).where(eq(children.id, id));
@@ -259,17 +266,20 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Events methods
-  async getEvents(familyId, childId, startDate, endDate) {
-    const query = db.select().from(events);
+  async getEvents(familyId, childId, startDate, endDate, pagination) {
     const conditions = [];
     if (familyId) conditions.push(eq(events.family_id, familyId));
     if (childId) conditions.push(eq(events.child_id, childId));
     if (startDate) conditions.push(gte(events.start_date, startDate));
     if (endDate) conditions.push(lte(events.start_date, endDate));
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(events).where(whereClause);
+    let query = db.select().from(events).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return query;
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getEvent(id) {
     const [event] = await db.select().from(events).where(eq(events.id, id));
@@ -288,11 +298,15 @@ var DatabaseStorage = class {
     return result.length > 0;
   }
   // Activities methods
-  async getActivities(season) {
-    if (season) {
-      return db.select().from(activities).where(eq(activities.season, season));
+  async getActivities(season, pagination) {
+    const condition = season ? eq(activities.season, season) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(activities).where(condition);
+    let query = db.select().from(activities).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(activities);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getActivity(id) {
     const [activity] = await db.select().from(activities).where(eq(activities.id, id));
@@ -303,11 +317,15 @@ var DatabaseStorage = class {
     return newActivity;
   }
   // Friends methods
-  async getFriends(familyId) {
-    if (familyId) {
-      return db.select().from(friends).where(eq(friends.family_id, familyId));
+  async getFriends(familyId, pagination) {
+    const condition = familyId ? eq(friends.family_id, familyId) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(friends).where(condition);
+    let query = db.select().from(friends).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(friends);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getFriend(id) {
     const [friend] = await db.select().from(friends).where(eq(friends.id, id));
@@ -322,11 +340,15 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Social Events methods
-  async getSocialEvents(familyId) {
-    if (familyId) {
-      return db.select().from(socialEvents).where(eq(socialEvents.family_id, familyId));
+  async getSocialEvents(familyId, pagination) {
+    const condition = familyId ? eq(socialEvents.family_id, familyId) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(socialEvents).where(condition);
+    let query = db.select().from(socialEvents).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(socialEvents);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getSocialEvent(id) {
     const [event] = await db.select().from(socialEvents).where(eq(socialEvents.id, id));
@@ -341,14 +363,18 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Reading List methods
-  async getReadingList(familyId, childId) {
+  async getReadingList(familyId, childId, pagination) {
     const conditions = [];
     if (familyId) conditions.push(eq(readingList.family_id, familyId));
     if (childId) conditions.push(eq(readingList.child_id, childId));
-    if (conditions.length > 0) {
-      return db.select().from(readingList).where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(readingList).where(whereClause);
+    let query = db.select().from(readingList).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(readingList);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getReadingListItem(id) {
     const [item] = await db.select().from(readingList).where(eq(readingList.id, id));
@@ -363,14 +389,18 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // School Tasks methods
-  async getSchoolTasks(familyId, childId) {
+  async getSchoolTasks(familyId, childId, pagination) {
     const conditions = [];
     if (familyId) conditions.push(eq(schoolTasks.family_id, familyId));
     if (childId) conditions.push(eq(schoolTasks.child_id, childId));
-    if (conditions.length > 0) {
-      return db.select().from(schoolTasks).where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(schoolTasks).where(whereClause);
+    let query = db.select().from(schoolTasks).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return db.select().from(schoolTasks);
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getSchoolTask(id) {
     const [task] = await db.select().from(schoolTasks).where(eq(schoolTasks.id, id));
@@ -385,31 +415,37 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Handover Notes methods
-  async getHandoverNotes(familyId, childId) {
-    const query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at));
+  async getHandoverNotes(familyId, childId, pagination) {
     const conditions = [];
     if (familyId) conditions.push(eq(handoverNotes.family_id, familyId));
     if (childId) conditions.push(eq(handoverNotes.child_id, childId));
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(handoverNotes).where(whereClause);
+    let query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return query;
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async createHandoverNote(note) {
     const [newNote] = await db.insert(handoverNotes).values(note).returning();
     return newNote;
   }
   // Expense methods
-  async getExpenses(familyId, childId, status) {
-    const query = db.select().from(expenses).orderBy(desc(expenses.date));
+  async getExpenses(familyId, childId, status, pagination) {
     const conditions = [];
     if (familyId) conditions.push(eq(expenses.family_id, familyId));
     if (childId) conditions.push(eq(expenses.child_id, childId));
     if (status) conditions.push(eq(expenses.status, status));
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(expenses).where(whereClause);
+    let query = db.select().from(expenses).orderBy(desc(expenses.date)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return query;
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getExpense(id) {
     const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
@@ -428,20 +464,18 @@ var DatabaseStorage = class {
     return result.length > 0;
   }
   // Message methods
-  async getMessages(userId, otherUserId) {
-    const query = db.select().from(messages).orderBy(desc(messages.created_at));
-    if (otherUserId) {
-      return query.where(
-        or(
-          and(eq(messages.sender_id, userId), eq(messages.receiver_id, otherUserId)),
-          and(eq(messages.sender_id, otherUserId), eq(messages.receiver_id, userId))
-        )
-      );
-    } else {
-      return query.where(
-        or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId))
-      );
+  async getMessages(userId, otherUserId, pagination) {
+    const whereClause = otherUserId ? or(
+      and(eq(messages.sender_id, userId), eq(messages.receiver_id, otherUserId)),
+      and(eq(messages.sender_id, otherUserId), eq(messages.receiver_id, userId))
+    ) : or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId));
+    const [countResult] = await db.select({ total: count() }).from(messages).where(whereClause);
+    let query = db.select().from(messages).orderBy(desc(messages.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getMessage(id) {
     const [message] = await db.select().from(messages).where(eq(messages.id, id));
@@ -460,8 +494,7 @@ var DatabaseStorage = class {
     return result.length;
   }
   // Document methods
-  async getDocuments(userId, category, childId) {
-    const query = db.select().from(documents).orderBy(desc(documents.created_at));
+  async getDocuments(userId, category, childId, pagination) {
     const conditions = [];
     conditions.push(
       or(
@@ -473,10 +506,14 @@ var DatabaseStorage = class {
     );
     if (category) conditions.push(eq(documents.category, category));
     if (childId) conditions.push(eq(documents.child_id, childId));
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+    const [countResult] = await db.select({ total: count() }).from(documents).where(whereClause);
+    let query = db.select().from(documents).orderBy(desc(documents.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset);
     }
-    return query;
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
   async getDocument(id) {
     const [document] = await db.select().from(documents).where(eq(documents.id, id));
@@ -842,6 +879,23 @@ var insertDocumentSchema = z.object({
 });
 
 // server/routes.ts
+function parsePagination(query) {
+  const page = Math.max(1, parseInt(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 50));
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+}
+function paginatedResponse(data, total, page, limit) {
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
 var upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -915,22 +969,45 @@ async function registerRoutes(httpServer2, app2) {
     res.json({ message: "Logged out successfully" });
   });
   app2.get("/api/auth/me", requireAuth, async (req, res) => {
-    const user = await storage.getUser(req.userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(sanitizeUser(user));
   });
   app2.get("/api/family", requireAuth, async (req, res) => {
-    const familyId = req.familyId;
-    if (!familyId) {
-      return res.status(404).json({ error: "No family found" });
+    try {
+      const familyId = req.familyId;
+      if (!familyId) {
+        return res.status(404).json({ error: "No family found" });
+      }
+      const family = await storage.getFamily(familyId);
+      if (!family) {
+        return res.status(404).json({ error: "Family not found" });
+      }
+      res.json(family);
+    } catch (error) {
+      console.error("Error fetching family:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    const family = await storage.getFamily(familyId);
-    if (!family) {
-      return res.status(404).json({ error: "Family not found" });
+  });
+  app2.get("/api/family/members", requireAuth, async (req, res) => {
+    try {
+      const familyId = req.familyId;
+      if (!familyId) {
+        return res.status(404).json({ error: "No family found" });
+      }
+      const members = await storage.getFamilyMembers(familyId);
+      res.json(members.map(sanitizeUser));
+    } catch (error) {
+      console.error("Error fetching family members:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(family);
   });
   app2.post("/api/family/join", requireAuth, async (req, res) => {
     try {
@@ -954,12 +1031,14 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/expenses", requireAuth, async (req, res) => {
     const familyId = req.familyId;
     const { childId, status } = req.query;
-    const expenses2 = await storage.getExpenses(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getExpenses(
       familyId,
       childId ? parseInt(childId) : void 0,
-      status
+      status,
+      { limit, offset }
     );
-    res.json(expenses2);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.get("/api/expenses/:id", requireAuth, async (req, res) => {
     const expense = await storage.getExpense(parseInt(req.params.id));
@@ -999,37 +1078,58 @@ async function registerRoutes(httpServer2, app2) {
     }
   });
   app2.delete("/api/expenses/:id", requireAuth, async (req, res) => {
-    const existing = await storage.getExpense(parseInt(req.params.id));
-    if (!existing) {
-      return res.status(404).json({ error: "Expense not found" });
+    try {
+      const existing = await storage.getExpense(parseInt(req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const success = await storage.deleteExpense(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (existing.family_id !== req.familyId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const success = await storage.deleteExpense(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Expense not found" });
-    }
-    res.status(204).send();
   });
   app2.get("/api/messages", requireAuth, async (req, res) => {
     const { otherUserId } = req.query;
-    const messages2 = await storage.getMessages(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getMessages(
       req.userId,
-      otherUserId
+      otherUserId,
+      { limit, offset }
     );
-    res.json(messages2);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.get("/api/messages/unread-count", requireAuth, async (req, res) => {
-    const count = await storage.getUnreadCount(req.userId);
-    res.json({ count });
-  });
-  app2.get("/api/messages/:id", async (req, res) => {
-    const message = await storage.getMessage(parseInt(req.params.id));
-    if (!message) {
-      return res.status(404).json({ error: "Message not found" });
+    try {
+      const count2 = await storage.getUnreadCount(req.userId);
+      res.json({ count: count2 });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(message);
+  });
+  app2.get("/api/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const message = await storage.getMessage(parseInt(req.params.id));
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      const userId = req.userId;
+      if (message.sender_id !== userId && message.receiver_id !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      res.json(message);
+    } catch (error) {
+      console.error("Error fetching message:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
   app2.post("/api/messages", requireAuth, async (req, res) => {
     try {
@@ -1062,19 +1162,31 @@ async function registerRoutes(httpServer2, app2) {
   });
   app2.get("/api/documents", requireAuth, async (req, res) => {
     const { category, childId } = req.query;
-    const documents2 = await storage.getDocuments(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getDocuments(
       req.userId,
       category,
-      childId ? parseInt(childId) : void 0
+      childId ? parseInt(childId) : void 0,
+      { limit, offset }
     );
-    res.json(documents2);
+    res.json(paginatedResponse(data, total, page, limit));
   });
-  app2.get("/api/documents/:id", async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
+  app2.get("/api/documents/:id", requireAuth, async (req, res) => {
+    try {
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      const userId = req.userId;
+      const sharedWith = Array.isArray(document.shared_with) ? document.shared_with : [];
+      if (document.uploaded_by !== userId && !sharedWith.includes(userId)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(document);
   });
   app2.post("/api/documents/upload", requireAuth, upload.single("file"), async (req, res) => {
     try {
@@ -1121,39 +1233,53 @@ async function registerRoutes(httpServer2, app2) {
     }
   });
   app2.delete("/api/documents/:id", requireAuth, async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-    if (document.uploaded_by !== req.userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
     try {
-      await del(document.file_path);
-    } catch {
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      if (document.uploaded_by !== req.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      try {
+        await del(document.file_path);
+      } catch {
+      }
+      const success = await storage.deleteDocument(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    const success = await storage.deleteDocument(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-    res.status(204).send();
   });
   app2.post("/api/documents/:id/share", requireAuth, async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
+    try {
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      if (document.uploaded_by !== req.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds)) {
+        return res.status(400).json({ error: "userIds must be an array" });
+      }
+      const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error sharing document:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (document.uploaded_by !== req.userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const { userIds } = req.body;
-    const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
-    res.json(updated);
   });
   app2.get("/api/children", requireAuth, async (req, res) => {
     const familyId = req.familyId;
-    const children2 = await storage.getChildren(familyId);
-    res.json(children2);
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getChildren(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.get("/api/children/:id", requireAuth, async (req, res) => {
     const child = await storage.getChild(parseInt(req.params.id));
@@ -1195,13 +1321,15 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/events", requireAuth, async (req, res) => {
     const familyId = req.familyId;
     const { childId, startDate, endDate } = req.query;
-    const events2 = await storage.getEvents(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getEvents(
       familyId,
       childId ? parseInt(childId) : void 0,
       startDate,
-      endDate
+      endDate,
+      { limit, offset }
     );
-    res.json(events2);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.get("/api/events/:id", requireAuth, async (req, res) => {
     const event = await storage.getEvent(parseInt(req.params.id));
@@ -1245,23 +1373,29 @@ async function registerRoutes(httpServer2, app2) {
     }
   });
   app2.delete("/api/events/:id", requireAuth, async (req, res) => {
-    const existing = await storage.getEvent(parseInt(req.params.id));
-    if (!existing) {
-      return res.status(404).json({ error: "Event not found" });
+    try {
+      const existing = await storage.getEvent(parseInt(req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const success = await storage.deleteEvent(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (existing.family_id !== req.familyId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const success = await storage.deleteEvent(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-    res.status(204).send();
   });
   app2.get("/api/activities", requireAuth, async (req, res) => {
     const { season } = req.query;
-    const activities2 = await storage.getActivities(season);
-    res.json(activities2);
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getActivities(season, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/activities", requireAuth, async (req, res) => {
     try {
@@ -1438,8 +1572,9 @@ async function registerRoutes(httpServer2, app2) {
   });
   app2.get("/api/friends", requireAuth, async (req, res) => {
     const familyId = req.familyId;
-    const friends2 = await storage.getFriends(familyId);
-    res.json(friends2);
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getFriends(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/friends", requireAuth, async (req, res) => {
     try {
@@ -1470,8 +1605,9 @@ async function registerRoutes(httpServer2, app2) {
   });
   app2.get("/api/social-events", requireAuth, async (req, res) => {
     const familyId = req.familyId;
-    const events2 = await storage.getSocialEvents(familyId);
-    res.json(events2);
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getSocialEvents(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/social-events", requireAuth, async (req, res) => {
     try {
@@ -1503,11 +1639,13 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/reading-list", requireAuth, async (req, res) => {
     const familyId = req.familyId;
     const { childId } = req.query;
-    const items = await storage.getReadingList(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getReadingList(
       familyId,
-      childId ? parseInt(childId) : void 0
+      childId ? parseInt(childId) : void 0,
+      { limit, offset }
     );
-    res.json(items);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/reading-list", requireAuth, async (req, res) => {
     try {
@@ -1539,11 +1677,13 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/school-tasks", requireAuth, async (req, res) => {
     const familyId = req.familyId;
     const { childId } = req.query;
-    const tasks = await storage.getSchoolTasks(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getSchoolTasks(
       familyId,
-      childId ? parseInt(childId) : void 0
+      childId ? parseInt(childId) : void 0,
+      { limit, offset }
     );
-    res.json(tasks);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/school-tasks", requireAuth, async (req, res) => {
     try {
@@ -1575,11 +1715,13 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/handover-notes", requireAuth, async (req, res) => {
     const familyId = req.familyId;
     const { childId } = req.query;
-    const notes = await storage.getHandoverNotes(
+    const { page, limit, offset } = parsePagination(req.query);
+    const { data, total } = await storage.getHandoverNotes(
       familyId,
-      childId ? parseInt(childId) : void 0
+      childId ? parseInt(childId) : void 0,
+      { limit, offset }
     );
-    res.json(notes);
+    res.json(paginatedResponse(data, total, page, limit));
   });
   app2.post("/api/handover-notes", requireAuth, async (req, res) => {
     try {

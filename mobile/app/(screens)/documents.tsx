@@ -14,8 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as DocumentPicker from "expo-document-picker";
 
-import { useDocuments } from "../../src/hooks/useDocuments";
+import { useDocuments, useUploadDocument } from "../../src/hooks/useDocuments";
 import { useTheme } from "../../src/theme/useTheme";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import { formatShortDate } from "../../src/utils/formatDate";
@@ -157,9 +158,45 @@ export default function DocumentsScreen() {
     );
   }
 
-  const handleFabPress = () => {
+  const uploadDocumentMutation = useUploadDocument();
+
+  const handleFabPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert("Upload Document", "Upload feature coming soon.");
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*", "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const file = result.assets[0];
+
+      uploadDocumentMutation.mutate(
+        {
+          fileUri: file.uri,
+          fileName: file.name,
+          fileType: file.mimeType ?? "application/octet-stream",
+          metadata: {
+            category: categoryFilter === "all" ? undefined : categoryFilter,
+          },
+        },
+        {
+          onSuccess: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Uploaded", "Document uploaded successfully.");
+          },
+          onError: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert("Upload failed", "Could not upload document. Please try again.");
+          },
+        },
+      );
+    } catch {
+      Alert.alert("Error", "Could not open file picker.");
+    }
   };
 
   return (

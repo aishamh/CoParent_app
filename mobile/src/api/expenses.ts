@@ -1,4 +1,4 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Expense } from "../types/schema";
 
 export async function getExpenses(
@@ -12,7 +12,8 @@ export async function getExpenses(
 
     const query = params.toString();
     const path = query ? `/api/expenses?${query}` : "/api/expenses";
-    return await fetchApi<Expense[]>(path);
+    const response = await fetchApi<PaginatedResponse<Expense>>(path);
+    return response.data;
   } catch {
     return [];
   }

@@ -1,9 +1,18 @@
 import { fetchApi } from "./client";
-import type { Family } from "../types/schema";
+import type { Family, Profile } from "../types/schema";
 
 export interface JoinFamilyResponse {
   family: Family;
   user: Record<string, unknown>;
+}
+
+/** Fetch all members of the current user's family (sanitized profiles). */
+export async function getFamilyMembers(): Promise<Profile[]> {
+  try {
+    return await fetchApi<Profile[]>("/api/family/members");
+  } catch {
+    return [];
+  }
 }
 
 export async function getFamily(): Promise<Family | null> {

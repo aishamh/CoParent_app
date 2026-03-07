@@ -1,11 +1,17 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { isSameDay, isSameWeek, format } from "date-fns";
 
 import { useAuth } from "../../src/auth/useAuth";
 import { useTheme } from "../../src/theme/useTheme";
+import { useChildren } from "../../src/hooks/useChildren";
+import { useEvents } from "../../src/hooks/useEvents";
+import { useExpenses } from "../../src/hooks/useExpenses";
+import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import Card from "../../src/components/ui/Card";
+import type { Event } from "../../src/types/schema";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -36,10 +42,31 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "View Documents", icon: "folder", route: "/(screens)/documents" },
 ];
 
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  custody: "#3B82F6",
+  activity: "#22C55E",
+  medical: "#EF4444",
+  school: "#A855F7",
+  holiday: "#F59E0B",
+  travel: "#06B6D4",
+  other: "#6B7280",
+};
+
 export default function DashboardScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const displayName = user?.display_name || user?.username || "there";
+
+  const { data: children = [] } = useChildren();
+  const { data: events = [], isLoading: eventsLoading } = useEvents();
+  const { data: expenses = [] } = useExpenses();
+
+  useRefreshOnFocus(["children", "events", "expenses"]);
+
+  const today = new Date();
+  const todayEvents = events.filter((e) => isSameDay(new Date(e.start_date), today));
+  const weekEvents = events.filter((e) => isSameWeek(new Date(e.start_date), today, { weekStartsOn: 1 }));
+  const pendingExpenses = expenses.filter((e) => e.status === "pending");
 
   function StatCard({
     label,
@@ -53,6 +80,22 @@ export default function DashboardScreen() {
         <Text style={[styles.statValue, { color: colors.primary }]}>{value}</Text>
         <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
       </Card>
+    );
+  }
+
+  function TodayEventCard({ event }: { event: Event }) {
+    const borderColor = EVENT_TYPE_COLORS[event.type] ?? EVENT_TYPE_COLORS.other;
+    const timeDisplay = event.start_time !== "00:00"
+      ? `${event.start_time} - ${event.end_time}`
+      : "All day";
+
+    return (
+      <View style={[styles.todayEvent, { backgroundColor: colors.card, borderLeftColor: borderColor }]}>
+        <Text style={[styles.todayEventTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {event.title}
+        </Text>
+        <Text style={[styles.todayEventTime, { color: colors.mutedForeground }]}>{timeDisplay}</Text>
+      </View>
     );
   }
 
@@ -92,23 +135,40 @@ export default function DashboardScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Today's Schedule</Text>
-          <Card>
-            <View style={styles.emptyState}>
-              <Feather name="calendar" size={32} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No events today</Text>
-              <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
-                Tap "Add Event" below to schedule something
-              </Text>
+          {eventsLoading ? (
+            <Card>
+              <ActivityIndicator size="small" color={colors.primary} style={{ paddingVertical: 24 }} />
+            </Card>
+          ) : todayEvents.length === 0 ? (
+            <Card>
+              <View style={styles.emptyState}>
+                <Feather name="calendar" size={32} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No events today</Text>
+                <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+                  Tap "Add Event" below to schedule something
+                </Text>
+              </View>
+            </Card>
+          ) : (
+            <View style={styles.todayEventsList}>
+              {todayEvents.slice(0, 5).map((event) => (
+                <TodayEventCard key={event.id} event={event} />
+              ))}
+              {todayEvents.length > 5 && (
+                <Text style={[styles.moreEventsText, { color: colors.primary }]}>
+                  +{todayEvents.length - 5} more events
+                </Text>
+              )}
             </View>
-          </Card>
+          )}
         </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Quick Stats</Text>
           <View style={styles.statsRow}>
-            <StatCard label="Children" value={0} />
-            <StatCard label="This Week" value={0} />
-            <StatCard label="Pending" value={0} />
+            <StatCard label="Children" value={children.length} />
+            <StatCard label="This Week" value={weekEvents.length} />
+            <StatCard label="Pending" value={pendingExpenses.length} />
           </View>
         </View>
 
@@ -183,6 +243,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 4,
+  },
+  todayEventsList: {
+    gap: 8,
+  },
+  todayEvent: {
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 4,
+  },
+  todayEventTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  todayEventTime: {
+    fontSize: 13,
+  },
+  moreEventsText: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    paddingVertical: 8,
   },
   actionsGrid: {
     flexDirection: "row",

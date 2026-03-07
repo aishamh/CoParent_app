@@ -1,4 +1,4 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Document } from "../types/schema";
 
 export async function getDocuments(
@@ -12,7 +12,8 @@ export async function getDocuments(
 
     const query = params.toString();
     const path = query ? `/api/documents?${query}` : "/api/documents";
-    return await fetchApi<Document[]>(path);
+    const response = await fetchApi<PaginatedResponse<Document>>(path);
+    return response.data;
   } catch {
     return [];
   }

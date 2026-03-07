@@ -1,11 +1,12 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Friend, SocialEvent } from "../types/schema";
 
 // --- Friends ---
 
 export async function getFriends(): Promise<Friend[]> {
   try {
-    return await fetchApi<Friend[]>("/api/friends");
+    const response = await fetchApi<PaginatedResponse<Friend>>("/api/friends");
+    return response.data;
   } catch {
     return [];
   }
@@ -42,7 +43,8 @@ export async function updateFriend(
 
 export async function getSocialEvents(): Promise<SocialEvent[]> {
   try {
-    return await fetchApi<SocialEvent[]>("/api/social-events");
+    const response = await fetchApi<PaginatedResponse<SocialEvent>>("/api/social-events");
+    return response.data;
   } catch {
     return [];
   }

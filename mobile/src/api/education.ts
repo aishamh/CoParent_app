@@ -1,4 +1,4 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type {
   ReadingListItem,
   SchoolTask,
@@ -12,7 +12,8 @@ export async function getReadingList(
 ): Promise<ReadingListItem[]> {
   try {
     const params = childId ? `?childId=${childId}` : "";
-    return await fetchApi<ReadingListItem[]>(`/api/reading-list${params}`);
+    const response = await fetchApi<PaginatedResponse<ReadingListItem>>(`/api/reading-list${params}`);
+    return response.data;
   } catch {
     return [];
   }
@@ -52,7 +53,8 @@ export async function getSchoolTasks(
 ): Promise<SchoolTask[]> {
   try {
     const params = childId ? `?childId=${childId}` : "";
-    return await fetchApi<SchoolTask[]>(`/api/school-tasks${params}`);
+    const response = await fetchApi<PaginatedResponse<SchoolTask>>(`/api/school-tasks${params}`);
+    return response.data;
   } catch {
     return [];
   }
@@ -92,7 +94,8 @@ export async function getHandoverNotes(
 ): Promise<HandoverNote[]> {
   try {
     const params = childId ? `?childId=${childId}` : "";
-    return await fetchApi<HandoverNote[]>(`/api/handover-notes${params}`);
+    const response = await fetchApi<PaginatedResponse<HandoverNote>>(`/api/handover-notes${params}`);
+    return response.data;
   } catch {
     return [];
   }

@@ -373,7 +373,16 @@ export default function CalendarScreen() {
             colors={colors}
           />
         )}
-        {viewMode === "day" && null}
+        {viewMode === "day" && (
+          <View style={styles.dayViewHeader}>
+            <Text style={[styles.dayViewDate, { color: colors.foreground }]}>
+              {format(selectedDate, "EEEE")}
+            </Text>
+            <Text style={[styles.dayViewFullDate, { color: colors.mutedForeground }]}>
+              {format(selectedDate, "MMMM d, yyyy")}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.eventsSection}>
@@ -525,6 +534,18 @@ const styles = StyleSheet.create({
   weekDayNumber: {
     fontSize: 18,
     fontWeight: "600",
+  },
+  dayViewHeader: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  dayViewDate: {
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  dayViewFullDate: {
+    fontSize: 14,
+    marginTop: 4,
   },
   eventsSection: {
     flex: 1,

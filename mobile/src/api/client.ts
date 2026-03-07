@@ -12,6 +12,17 @@ export class ApiError extends Error {
   }
 }
 
+/** Envelope returned by paginated list endpoints. */
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export async function fetchApi<T>(
   path: string,
   options?: RequestInit,

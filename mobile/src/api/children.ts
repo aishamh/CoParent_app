@@ -1,9 +1,10 @@
-import { fetchApi } from "./client";
+import { fetchApi, type PaginatedResponse } from "./client";
 import type { Child } from "../types/schema";
 
 export async function getChildren(): Promise<Child[]> {
   try {
-    return await fetchApi<Child[]>("/api/children");
+    const response = await fetchApi<PaginatedResponse<Child>>("/api/children");
+    return response.data;
   } catch {
     return [];
   }

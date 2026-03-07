@@ -143,25 +143,49 @@ export async function registerRoutes(
   });
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {
-    const user = await storage.getUser((req as any).userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    try {
+      const user = await storage.getUser((req as any).userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
-    res.json(sanitizeUser(user));
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // Family routes
   app.get("/api/family", requireAuth, async (req, res) => {
-    const familyId = (req as any).familyId;
-    if (!familyId) {
-      return res.status(404).json({ error: "No family found" });
+    try {
+      const familyId = (req as any).familyId;
+      if (!familyId) {
+        return res.status(404).json({ error: "No family found" });
+      }
+      const family = await storage.getFamily(familyId);
+      if (!family) {
+        return res.status(404).json({ error: "Family not found" });
+      }
+      res.json(family);
+    } catch (error) {
+      console.error("Error fetching family:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    const family = await storage.getFamily(familyId);
-    if (!family) {
-      return res.status(404).json({ error: "Family not found" });
+  });
+
+  app.get("/api/family/members", requireAuth, async (req, res) => {
+    try {
+      const familyId = (req as any).familyId;
+      if (!familyId) {
+        return res.status(404).json({ error: "No family found" });
+      }
+      const members = await storage.getFamilyMembers(familyId);
+      res.json(members.map(sanitizeUser));
+    } catch (error) {
+      console.error("Error fetching family members:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(family);
   });
 
   app.post("/api/family/join", requireAuth, async (req, res) => {
@@ -242,18 +266,23 @@ export async function registerRoutes(
   });
 
   app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
-    const existing = await storage.getExpense(parseInt(req.params.id));
-    if (!existing) {
-      return res.status(404).json({ error: "Expense not found" });
+    try {
+      const existing = await storage.getExpense(parseInt(req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      if (existing.family_id !== (req as any).familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const success = await storage.deleteExpense(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (existing.family_id !== (req as any).familyId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const success = await storage.deleteExpense(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Expense not found" });
-    }
-    res.status(204).send();
   });
 
   // Message routes - Secure, immutable messaging
@@ -269,16 +298,33 @@ export async function registerRoutes(
   });
 
   app.get("/api/messages/unread-count", requireAuth, async (req, res) => {
-    const count = await storage.getUnreadCount((req as any).userId);
-    res.json({ count });
+    try {
+      const count = await storage.getUnreadCount((req as any).userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
-  app.get("/api/messages/:id", async (req, res) => {
-    const message = await storage.getMessage(parseInt(req.params.id));
-    if (!message) {
-      return res.status(404).json({ error: "Message not found" });
+  app.get("/api/messages/:id", requireAuth, async (req, res) => {
+    try {
+      const message = await storage.getMessage(parseInt(req.params.id));
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+
+      // Only sender or receiver can view the message
+      const userId = (req as any).userId;
+      if (message.sender_id !== userId && message.receiver_id !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error fetching message:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(message);
   });
 
   app.post("/api/messages", requireAuth, async (req, res) => {
@@ -336,12 +382,25 @@ export async function registerRoutes(
     res.json(paginatedResponse(data, total, page, limit));
   });
 
-  app.get("/api/documents/:id", async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
+  app.get("/api/documents/:id", requireAuth, async (req, res) => {
+    try {
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Only the uploader or shared-with users can view
+      const userId = (req as any).userId;
+      const sharedWith = Array.isArray(document.shared_with) ? document.shared_with : [];
+      if (document.uploaded_by !== userId && !sharedWith.includes(userId)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(document);
   });
 
   app.post("/api/documents/upload", requireAuth, upload.single("file"), async (req, res) => {
@@ -399,45 +458,59 @@ export async function registerRoutes(
   });
 
   app.delete("/api/documents/:id", requireAuth, async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-
-    // Only owner can delete
-    if (document.uploaded_by !== (req as any).userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    // Delete file from Vercel Blob
     try {
-      await del(document.file_path);
-    } catch {
-      // Ignore blob deletion errors — file may already be gone
-    }
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
 
-    const success = await storage.deleteDocument(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Document not found" });
-    }
+      // Only owner can delete
+      if (document.uploaded_by !== (req as any).userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
-    res.status(204).send();
+      // Delete file from Vercel Blob
+      try {
+        await del(document.file_path);
+      } catch {
+        // Ignore blob deletion errors — file may already be gone
+      }
+
+      const success = await storage.deleteDocument(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.post("/api/documents/:id/share", requireAuth, async (req, res) => {
-    const document = await storage.getDocument(parseInt(req.params.id));
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
-    }
+    try {
+      const document = await storage.getDocument(parseInt(req.params.id));
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
 
-    // Only owner can share
-    if (document.uploaded_by !== (req as any).userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
+      // Only owner can share
+      if (document.uploaded_by !== (req as any).userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
-    const { userIds } = req.body;
-    const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
-    res.json(updated);
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds)) {
+        return res.status(400).json({ error: "userIds must be an array" });
+      }
+
+      const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error sharing document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // Children routes
@@ -548,18 +621,23 @@ export async function registerRoutes(
   });
 
   app.delete("/api/events/:id", requireAuth, async (req, res) => {
-    const existing = await storage.getEvent(parseInt(req.params.id));
-    if (!existing) {
-      return res.status(404).json({ error: "Event not found" });
+    try {
+      const existing = await storage.getEvent(parseInt(req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (existing.family_id !== (req as any).familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const success = await storage.deleteEvent(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (existing.family_id !== (req as any).familyId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const success = await storage.deleteEvent(parseInt(req.params.id));
-    if (!success) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-    res.status(204).send();
   });
 
   // Activities routes

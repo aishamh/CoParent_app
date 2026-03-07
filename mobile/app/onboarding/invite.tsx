@@ -18,6 +18,7 @@ import { useFamily, useJoinFamily } from "../../src/hooks/useFamily";
 import Button from "../../src/components/ui/Button";
 import TextInput from "../../src/components/ui/TextInput";
 import ProgressDots from "../../src/components/ui/ProgressDots";
+import type { ColorPalette } from "../../src/constants/colors";
 
 type Mode = "share" | "join";
 
@@ -160,7 +161,7 @@ export default function InviteScreen() {
 interface ShareCodeProps {
   inviteCode: string;
   isLoading: boolean;
-  colors: Record<string, string>;
+  colors: ColorPalette;
   onShare: () => void;
 }
 
@@ -223,7 +224,7 @@ interface JoinCodeProps {
   joinCode: string;
   onChangeCode: (text: string) => void;
   isSubmitting: boolean;
-  colors: Record<string, string>;
+  colors: ColorPalette;
   onSubmit: () => void;
 }
 
