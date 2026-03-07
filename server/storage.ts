@@ -41,7 +41,17 @@ import {
   documents,
 } from "./tables";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, count, sql } from "drizzle-orm";
+
+export interface PaginationOptions {
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+}
 
 export interface IStorage {
   // Family methods
@@ -56,67 +66,67 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   // Children methods
-  getChildren(familyId?: string): Promise<Child[]>;
+  getChildren(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Child>>;
   getChild(id: number): Promise<Child | undefined>;
   createChild(child: InsertChild): Promise<Child>;
   updateChild(id: number, child: Partial<InsertChild>): Promise<Child | undefined>;
 
   // Events methods
-  getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string): Promise<Event[]>;
+  getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Event>>;
   getEvent(id: number): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: number, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: number): Promise<boolean>;
 
   // Activities methods
-  getActivities(season?: string): Promise<Activity[]>;
+  getActivities(season?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Activity>>;
   getActivity(id: number): Promise<Activity | undefined>;
   createActivity(activity: InsertActivity): Promise<Activity>;
 
   // Friends methods
-  getFriends(familyId?: string): Promise<Friend[]>;
+  getFriends(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Friend>>;
   getFriend(id: number): Promise<Friend | undefined>;
   createFriend(friend: InsertFriend): Promise<Friend>;
   updateFriend(id: number, friend: Partial<InsertFriend>): Promise<Friend | undefined>;
 
   // Social Events methods
-  getSocialEvents(familyId?: string): Promise<SocialEvent[]>;
+  getSocialEvents(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<SocialEvent>>;
   getSocialEvent(id: number): Promise<SocialEvent | undefined>;
   createSocialEvent(event: InsertSocialEvent): Promise<SocialEvent>;
   updateSocialEvent(id: number, event: Partial<InsertSocialEvent>): Promise<SocialEvent | undefined>;
 
   // Reading List methods
-  getReadingList(familyId?: string, childId?: number): Promise<ReadingListItem[]>;
+  getReadingList(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<ReadingListItem>>;
   getReadingListItem(id: number): Promise<ReadingListItem | undefined>;
   createReadingListItem(item: InsertReadingListItem): Promise<ReadingListItem>;
   updateReadingListItem(id: number, item: Partial<InsertReadingListItem>): Promise<ReadingListItem | undefined>;
 
   // School Tasks methods
-  getSchoolTasks(familyId?: string, childId?: number): Promise<SchoolTask[]>;
+  getSchoolTasks(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<SchoolTask>>;
   getSchoolTask(id: number): Promise<SchoolTask | undefined>;
   createSchoolTask(task: InsertSchoolTask): Promise<SchoolTask>;
   updateSchoolTask(id: number, task: Partial<InsertSchoolTask>): Promise<SchoolTask | undefined>;
 
   // Handover Notes methods
-  getHandoverNotes(familyId?: string, childId?: number): Promise<HandoverNote[]>;
+  getHandoverNotes(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<HandoverNote>>;
   createHandoverNote(note: InsertHandoverNote): Promise<HandoverNote>;
 
   // Expense methods
-  getExpenses(familyId?: string, childId?: number, status?: string): Promise<Expense[]>;
+  getExpenses(familyId?: string, childId?: number, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Expense>>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number): Promise<boolean>;
 
   // Message methods
-  getMessages(userId: string, otherUserId?: string): Promise<Message[]>;
+  getMessages(userId: string, otherUserId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Message>>;
   getMessage(id: string): Promise<Message | undefined>;
   createMessage(message: InsertMessage & { content_hash: string; sender_id: string; family_id: string; sender_ip?: string }): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message | undefined>;
   getUnreadCount(userId: string): Promise<number>;
 
   // Document methods
-  getDocuments(userId: string, category?: string, childId?: number): Promise<Document[]>;
+  getDocuments(userId: string, category?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<Document>>;
   getDocument(id: string): Promise<Document | undefined>;
   createDocument(document: InsertDocument): Promise<Document>;
   updateDocument(id: string, document: Partial<InsertDocument>): Promise<Document | undefined>;
@@ -171,11 +181,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Children methods
-  async getChildren(familyId?: string): Promise<Child[]> {
-    if (familyId) {
-      return db.select().from(children).where(eq(children.family_id, familyId));
+  async getChildren(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Child>> {
+    const condition = familyId ? eq(children.family_id, familyId) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(children)
+      .where(condition);
+
+    let query = db.select().from(children).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(children);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getChild(id: number): Promise<Child | undefined> {
@@ -194,19 +214,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Events methods
-  async getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string): Promise<Event[]> {
-    const query = db.select().from(events);
-
+  async getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Event>> {
     const conditions = [];
     if (familyId) conditions.push(eq(events.family_id, familyId));
     if (childId) conditions.push(eq(events.child_id, childId));
     if (startDate) conditions.push(gte(events.start_date, startDate));
     if (endDate) conditions.push(lte(events.start_date, endDate));
 
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(events)
+      .where(whereClause);
+
+    let query = db.select().from(events).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return query;
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getEvent(id: number): Promise<Event | undefined> {
@@ -230,11 +258,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activities methods
-  async getActivities(season?: string): Promise<Activity[]> {
-    if (season) {
-      return db.select().from(activities).where(eq(activities.season, season));
+  async getActivities(season?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Activity>> {
+    const condition = season ? eq(activities.season, season) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(activities)
+      .where(condition);
+
+    let query = db.select().from(activities).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(activities);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getActivity(id: number): Promise<Activity | undefined> {
@@ -248,11 +286,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Friends methods
-  async getFriends(familyId?: string): Promise<Friend[]> {
-    if (familyId) {
-      return db.select().from(friends).where(eq(friends.family_id, familyId));
+  async getFriends(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Friend>> {
+    const condition = familyId ? eq(friends.family_id, familyId) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(friends)
+      .where(condition);
+
+    let query = db.select().from(friends).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(friends);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getFriend(id: number): Promise<Friend | undefined> {
@@ -271,11 +319,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Social Events methods
-  async getSocialEvents(familyId?: string): Promise<SocialEvent[]> {
-    if (familyId) {
-      return db.select().from(socialEvents).where(eq(socialEvents.family_id, familyId));
+  async getSocialEvents(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<SocialEvent>> {
+    const condition = familyId ? eq(socialEvents.family_id, familyId) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(socialEvents)
+      .where(condition);
+
+    let query = db.select().from(socialEvents).where(condition);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(socialEvents);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getSocialEvent(id: number): Promise<SocialEvent | undefined> {
@@ -294,15 +352,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Reading List methods
-  async getReadingList(familyId?: string, childId?: number): Promise<ReadingListItem[]> {
+  async getReadingList(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<ReadingListItem>> {
     const conditions = [];
     if (familyId) conditions.push(eq(readingList.family_id, familyId));
     if (childId) conditions.push(eq(readingList.child_id, childId));
 
-    if (conditions.length > 0) {
-      return db.select().from(readingList).where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(readingList)
+      .where(whereClause);
+
+    let query = db.select().from(readingList).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(readingList);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getReadingListItem(id: number): Promise<ReadingListItem | undefined> {
@@ -321,15 +389,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // School Tasks methods
-  async getSchoolTasks(familyId?: string, childId?: number): Promise<SchoolTask[]> {
+  async getSchoolTasks(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<SchoolTask>> {
     const conditions = [];
     if (familyId) conditions.push(eq(schoolTasks.family_id, familyId));
     if (childId) conditions.push(eq(schoolTasks.child_id, childId));
 
-    if (conditions.length > 0) {
-      return db.select().from(schoolTasks).where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(schoolTasks)
+      .where(whereClause);
+
+    let query = db.select().from(schoolTasks).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return db.select().from(schoolTasks);
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getSchoolTask(id: number): Promise<SchoolTask | undefined> {
@@ -348,17 +426,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Handover Notes methods
-  async getHandoverNotes(familyId?: string, childId?: number): Promise<HandoverNote[]> {
-    const query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at));
-
+  async getHandoverNotes(familyId?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<HandoverNote>> {
     const conditions = [];
     if (familyId) conditions.push(eq(handoverNotes.family_id, familyId));
     if (childId) conditions.push(eq(handoverNotes.child_id, childId));
 
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(handoverNotes)
+      .where(whereClause);
+
+    let query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return query;
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async createHandoverNote(note: InsertHandoverNote): Promise<HandoverNote> {
@@ -367,18 +453,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Expense methods
-  async getExpenses(familyId?: string, childId?: number, status?: string): Promise<Expense[]> {
-    const query = db.select().from(expenses).orderBy(desc(expenses.date));
-
+  async getExpenses(familyId?: string, childId?: number, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Expense>> {
     const conditions = [];
     if (familyId) conditions.push(eq(expenses.family_id, familyId));
     if (childId) conditions.push(eq(expenses.child_id, childId));
     if (status) conditions.push(eq(expenses.status, status));
 
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(expenses)
+      .where(whereClause);
+
+    let query = db.select().from(expenses).orderBy(desc(expenses.date)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return query;
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getExpense(id: number): Promise<Expense | undefined> {
@@ -402,23 +496,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Message methods
-  async getMessages(userId: string, otherUserId?: string): Promise<Message[]> {
-    const query = db.select().from(messages).orderBy(desc(messages.created_at));
-
-    if (otherUserId) {
-      // Get conversation between two users
-      return query.where(
-        or(
+  async getMessages(userId: string, otherUserId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Message>> {
+    const whereClause = otherUserId
+      ? or(
           and(eq(messages.sender_id, userId), eq(messages.receiver_id, otherUserId)),
           and(eq(messages.sender_id, otherUserId), eq(messages.receiver_id, userId))
         )
-      );
-    } else {
-      // Get all messages for user (sent or received)
-      return query.where(
-        or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId))
-      );
+      : or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId));
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(messages)
+      .where(whereClause);
+
+    let query = db.select().from(messages).orderBy(desc(messages.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getMessage(id: string): Promise<Message | undefined> {
@@ -448,9 +545,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document methods
-  async getDocuments(userId: string, category?: string, childId?: number): Promise<Document[]> {
-    const query = db.select().from(documents).orderBy(desc(documents.created_at));
-
+  async getDocuments(userId: string, category?: string, childId?: number, pagination?: PaginationOptions): Promise<PaginatedResult<Document>> {
     const conditions = [];
 
     // User can see documents they uploaded or that are shared with them
@@ -465,10 +560,20 @@ export class DatabaseStorage implements IStorage {
     if (category) conditions.push(eq(documents.category, category));
     if (childId) conditions.push(eq(documents.child_id, childId));
 
-    if (conditions.length > 0) {
-      return query.where(and(...conditions));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(documents)
+      .where(whereClause);
+
+    let query = db.select().from(documents).orderBy(desc(documents.created_at)).where(whereClause);
+    if (pagination) {
+      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
     }
-    return query;
+
+    const data = await query;
+    return { data, total: countResult?.total ?? 0 };
   }
 
   async getDocument(id: string): Promise<Document | undefined> {

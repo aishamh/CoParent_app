@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "bash scripts/patch-expo-xcode16.sh || true"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

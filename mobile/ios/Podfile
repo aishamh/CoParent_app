@@ -1,4 +1,4 @@
-# Set by expo-router. This enables Fabric-only features from react-native-screens
+# Set by expo-router. Fabric-only features from react-native-screens
 ENV['RNS_GAMMA_ENABLED'] ||= '1'
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
@@ -61,5 +61,16 @@ target 'CoParentConnect' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # Fix Xcode 16.4 compatibility for Expo SDK 55
+    # Xcode 16.4's Swift compiler lacks @MainActor on conformance (Xcode 26+ only).
+    # Source patches remove those 2 usages from ExpoModulesCore.
+    # Swift 5 mode + minimal concurrency turns actor-isolation errors into warnings.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+        build_config.build_settings['SWIFT_VERSION'] = '5.0'
+      end
+    end
   end
 end

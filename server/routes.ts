@@ -22,6 +22,27 @@ import {
   insertDocumentSchema
 } from "../shared/schema";
 
+/** Parse page/limit query params into pagination values with safe defaults. */
+function parsePagination(query: Record<string, unknown>): { page: number; limit: number; offset: number } {
+  const page = Math.max(1, parseInt(query.page as string) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit as string) || 50));
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+}
+
+/** Build a paginated JSON response envelope. */
+function paginatedResponse<T>(data: T[], total: number, page: number, limit: number) {
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 // Configure multer with memory storage (files uploaded to Vercel Blob)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -170,12 +191,14 @@ export async function registerRoutes(
   app.get("/api/expenses", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
     const { childId, status } = req.query;
-    const expenses = await storage.getExpenses(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getExpenses(
       familyId,
       childId ? parseInt(childId as string) : undefined,
-      status as string
+      status as string,
+      { limit, offset }
     );
-    res.json(expenses);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.get("/api/expenses/:id", requireAuth, async (req, res) => {
@@ -236,11 +259,13 @@ export async function registerRoutes(
   // Message routes - Secure, immutable messaging
   app.get("/api/messages", requireAuth, async (req, res) => {
     const { otherUserId } = req.query;
-    const messages = await storage.getMessages(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getMessages(
       (req as any).userId,
-      otherUserId as string | undefined
+      otherUserId as string | undefined,
+      { limit, offset }
     );
-    res.json(messages);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.get("/api/messages/unread-count", requireAuth, async (req, res) => {
@@ -301,12 +326,14 @@ export async function registerRoutes(
   // Document routes
   app.get("/api/documents", requireAuth, async (req, res) => {
     const { category, childId } = req.query;
-    const documents = await storage.getDocuments(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getDocuments(
       (req as any).userId,
       category as string | undefined,
-      childId ? parseInt(childId as string) : undefined
+      childId ? parseInt(childId as string) : undefined,
+      { limit, offset }
     );
-    res.json(documents);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.get("/api/documents/:id", async (req, res) => {
@@ -416,8 +443,9 @@ export async function registerRoutes(
   // Children routes
   app.get("/api/children", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
-    const children = await storage.getChildren(familyId);
-    res.json(children);
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getChildren(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.get("/api/children/:id", requireAuth, async (req, res) => {
@@ -464,13 +492,15 @@ export async function registerRoutes(
   app.get("/api/events", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
     const { childId, startDate, endDate } = req.query;
-    const events = await storage.getEvents(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getEvents(
       familyId,
       childId ? parseInt(childId as string) : undefined,
       startDate as string,
-      endDate as string
+      endDate as string,
+      { limit, offset }
     );
-    res.json(events);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.get("/api/events/:id", requireAuth, async (req, res) => {
@@ -535,8 +565,9 @@ export async function registerRoutes(
   // Activities routes
   app.get("/api/activities", requireAuth, async (req, res) => {
     const { season } = req.query;
-    const activities = await storage.getActivities(season as string);
-    res.json(activities);
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getActivities(season as string, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/activities", requireAuth, async (req, res) => {
@@ -714,8 +745,9 @@ export async function registerRoutes(
   // Friends routes
   app.get("/api/friends", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
-    const friends = await storage.getFriends(familyId);
-    res.json(friends);
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getFriends(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/friends", requireAuth, async (req, res) => {
@@ -750,8 +782,9 @@ export async function registerRoutes(
   // Social Events routes
   app.get("/api/social-events", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
-    const events = await storage.getSocialEvents(familyId);
-    res.json(events);
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getSocialEvents(familyId, { limit, offset });
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/social-events", requireAuth, async (req, res) => {
@@ -787,11 +820,13 @@ export async function registerRoutes(
   app.get("/api/reading-list", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
     const { childId } = req.query;
-    const items = await storage.getReadingList(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getReadingList(
       familyId,
-      childId ? parseInt(childId as string) : undefined
+      childId ? parseInt(childId as string) : undefined,
+      { limit, offset }
     );
-    res.json(items);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/reading-list", requireAuth, async (req, res) => {
@@ -827,11 +862,13 @@ export async function registerRoutes(
   app.get("/api/school-tasks", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
     const { childId } = req.query;
-    const tasks = await storage.getSchoolTasks(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getSchoolTasks(
       familyId,
-      childId ? parseInt(childId as string) : undefined
+      childId ? parseInt(childId as string) : undefined,
+      { limit, offset }
     );
-    res.json(tasks);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/school-tasks", requireAuth, async (req, res) => {
@@ -867,11 +904,13 @@ export async function registerRoutes(
   app.get("/api/handover-notes", requireAuth, async (req, res) => {
     const familyId = (req as any).familyId;
     const { childId } = req.query;
-    const notes = await storage.getHandoverNotes(
+    const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+    const { data, total } = await storage.getHandoverNotes(
       familyId,
-      childId ? parseInt(childId as string) : undefined
+      childId ? parseInt(childId as string) : undefined,
+      { limit, offset }
     );
-    res.json(notes);
+    res.json(paginatedResponse(data, total, page, limit));
   });
 
   app.post("/api/handover-notes", requireAuth, async (req, res) => {
