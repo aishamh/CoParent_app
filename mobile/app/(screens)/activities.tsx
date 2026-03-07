@@ -13,12 +13,9 @@ import { Stack } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
 import { useActivities, useOsloEvents } from "../../src/hooks/useActivities";
+import { useTheme } from "../../src/theme/useTheme";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import type { Activity, OsloEvent } from "../../src/types/schema";
-
-const TEAL = "#0d9488";
-const AMBER = "#f59e0b";
-const BACKGROUND = "#FDFAF5";
 
 type SeasonFilter = "all" | "spring" | "summer" | "fall" | "winter";
 
@@ -38,114 +35,9 @@ const SEASON_ICONS: Record<SeasonFilter, keyof typeof Feather.glyphMap> = {
   winter: "cloud-snow",
 };
 
-function FilterChip({
-  label,
-  isActive,
-  onPress,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.chip, isActive && styles.chipActive]}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`Filter: ${label}`}
-      accessibilityState={{ selected: isActive }}
-    >
-      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-        {label.charAt(0).toUpperCase() + label.slice(1)}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-function OsloEventCard({ event }: { event: OsloEvent }) {
-  return (
-    <View style={styles.osloCard}>
-      <View style={styles.osloCardHeader}>
-        <Feather name="map-pin" size={14} color={TEAL} />
-        <Text style={styles.osloLocation} numberOfLines={1}>
-          {event.location?.name ?? "Oslo"}
-        </Text>
-        {event.isFree && (
-          <View style={styles.freeBadge}>
-            <Text style={styles.freeBadgeText}>Free</Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.osloTitle} numberOfLines={2}>
-        {event.title || event.name}
-      </Text>
-      <Text style={styles.osloDescription} numberOfLines={2}>
-        {event.description}
-      </Text>
-      <View style={styles.osloFooter}>
-        <Text style={styles.osloDate}>
-          {event.startDate}
-          {event.startTime ? ` at ${event.startTime}` : ""}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function ActivityCard({ activity }: { activity: Activity }) {
-  return (
-    <View style={styles.activityCard} accessibilityRole="summary">
-      <View style={styles.activityHeader}>
-        <Text style={styles.activityTitle} numberOfLines={1}>
-          {activity.title}
-        </Text>
-        {activity.season && (
-          <View style={styles.seasonBadge}>
-            <Feather
-              name={SEASON_ICONS[activity.season as SeasonFilter] ?? "globe"}
-              size={12}
-              color="#6B7280"
-            />
-            <Text style={styles.seasonBadgeText}>{activity.season}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.activityMeta}>
-        <View style={styles.metaTag}>
-          <Feather name="tag" size={12} color="#9CA3AF" />
-          <Text style={styles.metaTagText}>{activity.category}</Text>
-        </View>
-        <View style={styles.metaTag}>
-          <Feather name="users" size={12} color="#9CA3AF" />
-          <Text style={styles.metaTagText}>{activity.age_range}</Text>
-        </View>
-        <View style={styles.metaTag}>
-          <Feather name="clock" size={12} color="#9CA3AF" />
-          <Text style={styles.metaTagText}>{activity.duration}</Text>
-        </View>
-      </View>
-      <Text style={styles.activityDescription} numberOfLines={3}>
-        {activity.description}
-      </Text>
-    </View>
-  );
-}
-
-function EmptyActivities() {
-  return (
-    <View style={styles.emptyState}>
-      <Feather name="heart" size={48} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No activities</Text>
-      <Text style={styles.emptySubtext}>
-        Discover fun activities for the whole family.
-      </Text>
-    </View>
-  );
-}
-
 export default function ActivitiesScreen() {
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>("all");
+  const { colors } = useTheme();
 
   const apiSeason = seasonFilter === "all" ? undefined : seasonFilter;
   const { data: activities = [], isLoading: activitiesLoading } =
@@ -156,11 +48,129 @@ export default function ActivitiesScreen() {
   const isLoading = activitiesLoading && activities.length === 0;
   const typedOsloEvents = osloEvents as OsloEvent[];
 
+  function FilterChip({
+    label,
+    isActive,
+    onPress,
+  }: {
+    label: string;
+    isActive: boolean;
+    onPress: () => void;
+  }) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        style={[
+          styles.chip,
+          { backgroundColor: colors.muted },
+          isActive && { backgroundColor: colors.primary },
+        ]}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Filter: ${label}`}
+        accessibilityState={{ selected: isActive }}
+      >
+        <Text
+          style={[
+            styles.chipText,
+            { color: colors.mutedForeground },
+            isActive && { color: colors.primaryForeground },
+          ]}
+        >
+          {label.charAt(0).toUpperCase() + label.slice(1)}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  function OsloEventCard({ event }: { event: OsloEvent }) {
+    return (
+      <View style={[styles.osloCard, { backgroundColor: colors.card, borderColor: colors.amber }]}>
+        <View style={styles.osloCardHeader}>
+          <Feather name="map-pin" size={14} color={colors.primary} />
+          <Text style={[styles.osloLocation, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {event.location?.name ?? "Oslo"}
+          </Text>
+          {event.isFree && (
+            <View style={styles.freeBadge}>
+              <Text style={styles.freeBadgeText}>Free</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.osloTitle, { color: colors.foreground }]} numberOfLines={2}>
+          {event.title || event.name}
+        </Text>
+        <Text style={[styles.osloDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
+          {event.description}
+        </Text>
+        <View style={styles.osloFooter}>
+          <Text style={[styles.osloDate, { color: colors.mutedForeground }]}>
+            {event.startDate}
+            {event.startTime ? ` at ${event.startTime}` : ""}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  function ActivityCard({ activity }: { activity: Activity }) {
+    return (
+      <View
+        style={[styles.activityCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        accessibilityRole="summary"
+      >
+        <View style={styles.activityHeader}>
+          <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
+            {activity.title}
+          </Text>
+          {activity.season && (
+            <View style={[styles.seasonBadge, { backgroundColor: colors.muted }]}>
+              <Feather
+                name={SEASON_ICONS[activity.season as SeasonFilter] ?? "globe"}
+                size={12}
+                color={colors.mutedForeground}
+              />
+              <Text style={[styles.seasonBadgeText, { color: colors.mutedForeground }]}>{activity.season}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.activityMeta}>
+          <View style={styles.metaTag}>
+            <Feather name="tag" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaTagText, { color: colors.mutedForeground }]}>{activity.category}</Text>
+          </View>
+          <View style={styles.metaTag}>
+            <Feather name="users" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaTagText, { color: colors.mutedForeground }]}>{activity.age_range}</Text>
+          </View>
+          <View style={styles.metaTag}>
+            <Feather name="clock" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.metaTagText, { color: colors.mutedForeground }]}>{activity.duration}</Text>
+          </View>
+        </View>
+        <Text style={[styles.activityDescription, { color: colors.mutedForeground }]} numberOfLines={3}>
+          {activity.description}
+        </Text>
+      </View>
+    );
+  }
+
+  function EmptyActivities() {
+    return (
+      <View style={styles.emptyState}>
+        <Feather name="heart" size={48} color={colors.border} />
+        <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>No activities</Text>
+        <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+          Discover fun activities for the whole family.
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>
       <Stack.Screen options={{ title: "Activities" }} />
 
-      {/* Season Filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -178,7 +188,7 @@ export default function ActivitiesScreen() {
 
       {isLoading ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={TEAL} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -191,8 +201,8 @@ export default function ActivitiesScreen() {
             typedOsloEvents.length > 0 ? (
               <View style={styles.osloSection}>
                 <View style={styles.osloSectionHeader}>
-                  <Feather name="map-pin" size={18} color={AMBER} />
-                  <Text style={styles.osloSectionTitle}>Oslo Events</Text>
+                  <Feather name="map-pin" size={18} color={colors.amber} />
+                  <Text style={[styles.osloSectionTitle, { color: colors.foreground }]}>Oslo Events</Text>
                 </View>
                 <FlatList
                   data={typedOsloEvents}
@@ -217,7 +227,6 @@ export default function ActivitiesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   chipRow: {
     paddingHorizontal: 24,
@@ -228,18 +237,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-  },
-  chipActive: {
-    backgroundColor: TEAL,
   },
   chipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
-  },
-  chipTextActive: {
-    color: "#FFFFFF",
   },
   loaderContainer: {
     flex: 1,
@@ -262,18 +263,15 @@ const styles = StyleSheet.create({
   osloSectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
   },
   osloList: {
     gap: 12,
   },
   osloCard: {
     width: 260,
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#FDE68A",
   },
   osloCardHeader: {
     flexDirection: "row",
@@ -283,7 +281,6 @@ const styles = StyleSheet.create({
   },
   osloLocation: {
     fontSize: 12,
-    color: "#6B7280",
     flex: 1,
   },
   freeBadge: {
@@ -300,12 +297,10 @@ const styles = StyleSheet.create({
   osloTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
     marginBottom: 4,
   },
   osloDescription: {
     fontSize: 13,
-    color: "#6B7280",
     lineHeight: 18,
     marginBottom: 8,
   },
@@ -315,15 +310,12 @@ const styles = StyleSheet.create({
   },
   osloDate: {
     fontSize: 12,
-    color: "#9CA3AF",
   },
   activityCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 16,
     marginBottom: 10,
     borderWidth: 0.5,
-    borderColor: "#E5E7EB",
   },
   activityHeader: {
     flexDirection: "row",
@@ -334,7 +326,6 @@ const styles = StyleSheet.create({
   activityTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
     flex: 1,
     marginRight: 8,
   },
@@ -342,7 +333,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -350,7 +340,6 @@ const styles = StyleSheet.create({
   seasonBadgeText: {
     fontSize: 11,
     fontWeight: "500",
-    color: "#6B7280",
     textTransform: "capitalize",
   },
   activityMeta: {
@@ -365,12 +354,10 @@ const styles = StyleSheet.create({
   },
   metaTagText: {
     fontSize: 12,
-    color: "#9CA3AF",
     textTransform: "capitalize",
   },
   activityDescription: {
     fontSize: 14,
-    color: "#6B7280",
     lineHeight: 20,
   },
   emptyState: {
@@ -381,12 +368,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#6B7280",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
     marginTop: 6,
   },

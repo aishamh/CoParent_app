@@ -15,12 +15,10 @@ import { useMutation } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { createChild } from "../../src/api/children";
+import { useTheme } from "../../src/theme/useTheme";
 import Button from "../../src/components/ui/Button";
 import TextInput from "../../src/components/ui/TextInput";
 import ProgressDots from "../../src/components/ui/ProgressDots";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
 
 interface LocalChild {
   name: string;
@@ -32,6 +30,7 @@ export default function ChildrenScreen() {
   const [showForm, setShowForm] = useState(false);
   const [childName, setChildName] = useState("");
   const [childAge, setChildAge] = useState("");
+  const { colors } = useTheme();
 
   const mutation = useMutation({
     mutationFn: (child: Parameters<typeof createChild>[0]) => createChild(child),
@@ -80,10 +79,10 @@ export default function ChildrenScreen() {
   };
 
   const renderChildRow = ({ item, index }: { item: LocalChild; index: number }) => (
-    <View style={styles.childRow}>
+    <View style={[styles.childRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.childInfo}>
-        <Text style={styles.childName}>{item.name}</Text>
-        <Text style={styles.childAge}>Age {item.age}</Text>
+        <Text style={[styles.childName, { color: colors.foreground }]}>{item.name}</Text>
+        <Text style={[styles.childAge, { color: colors.mutedForeground }]}>Age {item.age}</Text>
       </View>
 
       <Pressable
@@ -92,13 +91,13 @@ export default function ChildrenScreen() {
         accessibilityRole="button"
         accessibilityLabel={`Remove ${item.name}`}
       >
-        <Feather name="x-circle" size={22} color="#DC2626" />
+        <Feather name="x-circle" size={22} color={colors.destructive} />
       </Pressable>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -106,7 +105,7 @@ export default function ChildrenScreen() {
         <View style={styles.container}>
           <ProgressDots total={4} current={2} />
 
-          <Text style={styles.title}>Add Your Children</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Add Your Children</Text>
 
           <FlatList
             data={children}
@@ -114,14 +113,14 @@ export default function ChildrenScreen() {
             renderItem={renderChildRow}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                 No children added yet. Tap the button below to get started.
               </Text>
             }
           />
 
           {showForm ? (
-            <View style={styles.inlineForm}>
+            <View style={[styles.inlineForm, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TextInput
                 label="Child's Name"
                 placeholder="Enter name"
@@ -153,7 +152,7 @@ export default function ChildrenScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Cancel adding child"
                 >
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
                 </Pressable>
               </View>
             </View>
@@ -175,7 +174,7 @@ export default function ChildrenScreen() {
               accessibilityRole="link"
               accessibilityLabel="Skip adding children"
             >
-              <Text style={styles.skipText}>Skip</Text>
+              <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
             </Pressable>
           </View>
         </View>
@@ -187,7 +186,6 @@ export default function ChildrenScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   flex: {
     flex: 1,
@@ -199,7 +197,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     textAlign: "center",
     marginBottom: 24,
   },
@@ -209,7 +206,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
     paddingVertical: 24,
     lineHeight: 20,
@@ -218,12 +214,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   childInfo: {
     flex: 1,
@@ -231,11 +225,9 @@ const styles = StyleSheet.create({
   childName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
   },
   childAge: {
     fontSize: 14,
-    color: "#6B7280",
     marginTop: 2,
   },
   removeButton: {
@@ -246,12 +238,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   inlineForm: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   formActions: {
     flexDirection: "row",
@@ -270,7 +260,6 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
   },
   addChildButton: {
     marginBottom: 16,
@@ -288,6 +277,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
   },
 });

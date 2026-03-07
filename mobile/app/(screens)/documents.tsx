@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,14 +13,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { useDocuments } from "../../src/hooks/useDocuments";
+import { useTheme } from "../../src/theme/useTheme";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import { formatShortDate } from "../../src/utils/formatDate";
 import type { Document } from "../../src/types/schema";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
 
 type CategoryFilter =
   | "all"
@@ -67,96 +67,105 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function FilterChip({
-  label,
-  isActive,
-  onPress,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.chip, isActive && styles.chipActive]}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`Filter: ${label}`}
-      accessibilityState={{ selected: isActive }}
-    >
-      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-        {label.charAt(0).toUpperCase() + label.slice(1)}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-function DocumentCard({ document }: { document: Document }) {
-  const categoryColor =
-    CATEGORY_COLORS[document.category] ?? CATEGORY_COLORS.other;
-  const icon = getFileIcon(document.file_type);
-
-  return (
-    <View style={styles.docCard} accessibilityRole="summary">
-      <View style={styles.docIconWrapper}>
-        <Feather name={icon} size={24} color={categoryColor} />
-      </View>
-      <View style={styles.docContent}>
-        <Text style={styles.docTitle} numberOfLines={1}>
-          {document.title}
-        </Text>
-        <View style={styles.docMeta}>
-          <View
-            style={[
-              styles.categoryBadge,
-              { backgroundColor: `${categoryColor}18` },
-            ]}
-          >
-            <Text
-              style={[styles.categoryBadgeText, { color: categoryColor }]}
-            >
-              {document.category}
-            </Text>
-          </View>
-          <Text style={styles.docDetail}>
-            {formatShortDate(document.created_at)}
-          </Text>
-          <Text style={styles.docDetail}>
-            {formatFileSize(document.file_size)}
-          </Text>
-        </View>
-      </View>
-      <Feather name="chevron-right" size={18} color="#D1D5DB" />
-    </View>
-  );
-}
-
-function EmptyDocuments() {
-  return (
-    <View style={styles.emptyState}>
-      <Feather name="folder" size={48} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No documents</Text>
-      <Text style={styles.emptySubtext}>
-        Upload documents to keep important files organized.
-      </Text>
-    </View>
-  );
-}
-
 export default function DocumentsScreen() {
-  const [categoryFilter, setCategoryFilter] =
-    useState<CategoryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const { colors } = useTheme();
 
   const apiCategory = categoryFilter === "all" ? undefined : categoryFilter;
-  const { data: documents = [], isLoading } = useDocuments(apiCategory);
+  const { data: documents = [], isLoading, isRefetching, refetch } = useDocuments(apiCategory);
   useRefreshOnFocus(["documents"]);
 
+  function FilterChip({
+    label,
+    isActive,
+    onPress,
+  }: {
+    label: string;
+    isActive: boolean;
+    onPress: () => void;
+  }) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        style={[
+          styles.chip,
+          { backgroundColor: colors.muted },
+          isActive && { backgroundColor: colors.primary },
+        ]}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Filter: ${label}`}
+        accessibilityState={{ selected: isActive }}
+      >
+        <Text
+          style={[
+            styles.chipText,
+            { color: colors.mutedForeground },
+            isActive && { color: colors.primaryForeground },
+          ]}
+        >
+          {label.charAt(0).toUpperCase() + label.slice(1)}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  function DocumentCard({ document }: { document: Document }) {
+    const categoryColor = CATEGORY_COLORS[document.category] ?? CATEGORY_COLORS.other;
+    const icon = getFileIcon(document.file_type);
+
+    return (
+      <View
+        style={[styles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        accessibilityRole="summary"
+      >
+        <View style={[styles.docIconWrapper, { backgroundColor: colors.muted }]}>
+          <Feather name={icon} size={24} color={categoryColor} />
+        </View>
+        <View style={styles.docContent}>
+          <Text style={[styles.docTitle, { color: colors.foreground }]} numberOfLines={1}>
+            {document.title}
+          </Text>
+          <View style={styles.docMeta}>
+            <View style={[styles.categoryBadge, { backgroundColor: `${categoryColor}18` }]}>
+              <Text style={[styles.categoryBadgeText, { color: categoryColor }]}>
+                {document.category}
+              </Text>
+            </View>
+            <Text style={[styles.docDetail, { color: colors.mutedForeground }]}>
+              {formatShortDate(document.created_at)}
+            </Text>
+            <Text style={[styles.docDetail, { color: colors.mutedForeground }]}>
+              {formatFileSize(document.file_size)}
+            </Text>
+          </View>
+        </View>
+        <Feather name="chevron-right" size={18} color={colors.border} />
+      </View>
+    );
+  }
+
+  function EmptyDocuments() {
+    return (
+      <View style={styles.emptyState}>
+        <Feather name="folder" size={48} color={colors.border} />
+        <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>No documents</Text>
+        <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+          Upload documents to keep important files organized.
+        </Text>
+      </View>
+    );
+  }
+
+  const handleFabPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert("Upload Document", "Upload feature coming soon.");
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>
       <Stack.Screen options={{ title: "Documents" }} />
 
-      {/* Category Filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -172,10 +181,9 @@ export default function DocumentsScreen() {
         ))}
       </ScrollView>
 
-      {/* Documents List */}
       {isLoading ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={TEAL} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : documents.length === 0 ? (
         <EmptyDocuments />
@@ -186,20 +194,24 @@ export default function DocumentsScreen() {
           renderItem={({ item }) => <DocumentCard document={item} />}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
+          }
         />
       )}
 
-      {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() =>
-          Alert.alert("Upload Document", "Upload feature coming soon.")
-        }
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={handleFabPress}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="Upload document"
       >
-        <Feather name="upload" size={24} color="#FFFFFF" />
+        <Feather name="upload" size={24} color={colors.primaryForeground} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -208,7 +220,6 @@ export default function DocumentsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   chipRow: {
     paddingHorizontal: 24,
@@ -219,18 +230,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-  },
-  chipActive: {
-    backgroundColor: TEAL,
   },
   chipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
-  },
-  chipTextActive: {
-    color: "#FFFFFF",
   },
   loaderContainer: {
     flex: 1,
@@ -244,18 +247,15 @@ const styles = StyleSheet.create({
   docCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
     marginBottom: 8,
     borderWidth: 0.5,
-    borderColor: "#E5E7EB",
   },
   docIconWrapper: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -266,7 +266,6 @@ const styles = StyleSheet.create({
   docTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
     marginBottom: 4,
   },
   docMeta: {
@@ -286,7 +285,6 @@ const styles = StyleSheet.create({
   },
   docDetail: {
     fontSize: 11,
-    color: "#9CA3AF",
   },
   emptyState: {
     flex: 1,
@@ -297,12 +295,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#6B7280",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
     marginTop: 6,
   },
@@ -313,7 +309,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: TEAL,
     alignItems: "center",
     justifyContent: "center",
     elevation: 6,

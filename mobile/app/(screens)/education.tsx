@@ -16,6 +16,7 @@ import {
   useSchoolTasks,
   useHandoverNotes,
 } from "../../src/hooks/useEducation";
+import { useTheme } from "../../src/theme/useTheme";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import { formatShortDate } from "../../src/utils/formatDate";
 import type {
@@ -23,9 +24,7 @@ import type {
   SchoolTask,
   HandoverNote,
 } from "../../src/types/schema";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
+import type { ColorPalette } from "../../src/constants/colors";
 
 type EducationTab = "reading" | "tasks" | "handover";
 
@@ -35,249 +34,244 @@ const TASK_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   completed: { bg: "#D1FAE5", text: "#065F46" },
 };
 
-function SegmentedControl({
-  activeTab,
-  onChangeTab,
-}: {
-  activeTab: EducationTab;
-  onChangeTab: (tab: EducationTab) => void;
-}) {
-  const tabs: { key: EducationTab; label: string }[] = [
-    { key: "reading", label: "Reading List" },
-    { key: "tasks", label: "School Tasks" },
-    { key: "handover", label: "Handover Notes" },
-  ];
-
-  return (
-    <View style={styles.segmentedControl}>
-      {tabs.map((tab) => {
-        const isActive = tab.key === activeTab;
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => onChangeTab(tab.key)}
-            style={[styles.segment, isActive && styles.segmentActive]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                isActive && styles.segmentTextActive,
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-function ProgressBar({ progress }: { progress: number }) {
-  const clampedProgress = Math.min(100, Math.max(0, progress));
-
-  return (
-    <View style={styles.progressBarTrack}>
-      <View
-        style={[styles.progressBarFill, { width: `${clampedProgress}%` }]}
-      />
-    </View>
-  );
-}
-
-function ReadingListCard({ item }: { item: ReadingListItem }) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.bookIconWrapper}>
-        <Feather name="book" size={22} color={TEAL} />
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.cardSubtitle}>by {item.author}</Text>
-        <View style={styles.progressRow}>
-          <ProgressBar progress={item.progress} />
-          <Text style={styles.progressText}>{item.progress}%</Text>
-        </View>
-        <Text style={styles.assignedTo}>
-          Assigned to: {item.assigned_to}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function SchoolTaskCard({ task }: { task: SchoolTask }) {
-  const statusColor =
-    TASK_STATUS_COLORS[task.status] ?? TASK_STATUS_COLORS.pending;
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.taskIconWrapper}>
-        <Feather name="check-square" size={22} color="#A855F7" />
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.taskHeader}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {task.title}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
-            <Text style={[styles.statusBadgeText, { color: statusColor.text }]}>
-              {task.status}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.cardSubtitle}>
-          Due: {formatShortDate(task.due_date)}
-        </Text>
-        {task.platform && (
-          <Text style={styles.platform}>Platform: {task.platform}</Text>
-        )}
-        {task.description && (
-          <Text style={styles.taskDescription} numberOfLines={2}>
-            {task.description}
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function HandoverNoteCard({ note }: { note: HandoverNote }) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.noteIconWrapper}>
-        <Feather name="edit-3" size={22} color="#F59E0B" />
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.noteHeader}>
-          <Text style={styles.noteSender}>{note.parent}</Text>
-          <Text style={styles.noteDate}>
-            {formatShortDate(note.created_at)}
-          </Text>
-        </View>
-        <Text style={styles.noteMessage}>{note.message}</Text>
-      </View>
-    </View>
-  );
-}
-
-function EmptyTab({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <View style={styles.emptyState}>
-      <Feather name={icon} size={48} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptySubtext}>{subtitle}</Text>
-    </View>
-  );
-}
-
-function ReadingListTab() {
-  const { data: items = [], isLoading } = useReadingList();
-  useRefreshOnFocus(["readingList"]);
-
-  if (isLoading) {
-    return <ActivityIndicator size="large" color={TEAL} style={styles.loader} />;
-  }
-
-  if (items.length === 0) {
-    return (
-      <EmptyTab
-        icon="book"
-        title="No reading list items"
-        subtitle="Add books for your children to track their reading progress."
-      />
-    );
-  }
-
-  return (
-    <FlatList
-      data={items}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <ReadingListCard item={item} />}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-    />
-  );
-}
-
-function SchoolTasksTab() {
-  const { data: tasks = [], isLoading } = useSchoolTasks();
-  useRefreshOnFocus(["schoolTasks"]);
-
-  if (isLoading) {
-    return <ActivityIndicator size="large" color={TEAL} style={styles.loader} />;
-  }
-
-  if (tasks.length === 0) {
-    return (
-      <EmptyTab
-        icon="check-square"
-        title="No school tasks"
-        subtitle="Track homework and school assignments here."
-      />
-    );
-  }
-
-  return (
-    <FlatList
-      data={tasks}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <SchoolTaskCard task={item} />}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-    />
-  );
-}
-
-function HandoverNotesTab() {
-  const { data: notes = [], isLoading } = useHandoverNotes();
-  useRefreshOnFocus(["handoverNotes"]);
-
-  if (isLoading) {
-    return <ActivityIndicator size="large" color={TEAL} style={styles.loader} />;
-  }
-
-  if (notes.length === 0) {
-    return (
-      <EmptyTab
-        icon="edit-3"
-        title="No handover notes"
-        subtitle="Share important notes during custody handovers."
-      />
-    );
-  }
-
-  return (
-    <FlatList
-      data={notes}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <HandoverNoteCard note={item} />}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-    />
-  );
-}
-
 export default function EducationScreen() {
   const [activeTab, setActiveTab] = useState<EducationTab>("reading");
+  const { colors } = useTheme();
+
+  function SegmentedControl() {
+    const tabs: { key: EducationTab; label: string }[] = [
+      { key: "reading", label: "Reading List" },
+      { key: "tasks", label: "School Tasks" },
+      { key: "handover", label: "Handover Notes" },
+    ];
+
+    return (
+      <View style={[styles.segmentedControl, { backgroundColor: colors.muted }]}>
+        {tabs.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={[styles.segment, isActive && { backgroundColor: colors.card }]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: colors.mutedForeground },
+                  isActive && { color: colors.primary, fontWeight: "600" },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }
+
+  function ProgressBar({ progress }: { progress: number }) {
+    const clampedProgress = Math.min(100, Math.max(0, progress));
+
+    return (
+      <View style={[styles.progressBarTrack, { backgroundColor: colors.border }]}>
+        <View
+          style={[styles.progressBarFill, { width: `${clampedProgress}%`, backgroundColor: colors.primary }]}
+        />
+      </View>
+    );
+  }
+
+  function ReadingListCard({ item }: { item: ReadingListItem }) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.bookIconWrapper, { backgroundColor: colors.accent }]}>
+          <Feather name="book" size={22} color={colors.primary} />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>by {item.author}</Text>
+          <View style={styles.progressRow}>
+            <ProgressBar progress={item.progress} />
+            <Text style={[styles.progressText, { color: colors.primary }]}>{item.progress}%</Text>
+          </View>
+          <Text style={[styles.assignedTo, { color: colors.mutedForeground }]}>
+            Assigned to: {item.assigned_to}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  function SchoolTaskCard({ task }: { task: SchoolTask }) {
+    const statusColor = TASK_STATUS_COLORS[task.status] ?? TASK_STATUS_COLORS.pending;
+
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.taskIconWrapper}>
+          <Feather name="check-square" size={22} color="#A855F7" />
+        </View>
+        <View style={styles.cardContent}>
+          <View style={styles.taskHeader}>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {task.title}
+            </Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: statusColor.text }]}>
+                {task.status}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>
+            Due: {formatShortDate(task.due_date)}
+          </Text>
+          {task.platform && (
+            <Text style={[styles.platform, { color: colors.mutedForeground }]}>Platform: {task.platform}</Text>
+          )}
+          {task.description && (
+            <Text style={[styles.taskDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {task.description}
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  function HandoverNoteCard({ note }: { note: HandoverNote }) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.noteIconWrapper}>
+          <Feather name="edit-3" size={22} color={colors.amber} />
+        </View>
+        <View style={styles.cardContent}>
+          <View style={styles.noteHeader}>
+            <Text style={[styles.noteSender, { color: colors.foreground }]}>{note.parent}</Text>
+            <Text style={[styles.noteDate, { color: colors.mutedForeground }]}>
+              {formatShortDate(note.created_at)}
+            </Text>
+          </View>
+          <Text style={[styles.noteMessage, { color: colors.foreground }]}>{note.message}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  function EmptyTab({
+    icon,
+    title,
+    subtitle,
+  }: {
+    icon: keyof typeof Feather.glyphMap;
+    title: string;
+    subtitle: string;
+  }) {
+    return (
+      <View style={styles.emptyState}>
+        <Feather name={icon} size={48} color={colors.border} />
+        <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>{title}</Text>
+        <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>{subtitle}</Text>
+      </View>
+    );
+  }
+
+  function ReadingListTab() {
+    const { data: items = [], isLoading } = useReadingList();
+    useRefreshOnFocus(["readingList"]);
+
+    if (isLoading) {
+      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
+    }
+
+    if (items.length === 0) {
+      return (
+        <EmptyTab
+          icon="book"
+          title="No reading list items"
+          subtitle="Add books for your children to track their reading progress."
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={items}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <ReadingListCard item={item} />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  }
+
+  function SchoolTasksTab() {
+    const { data: tasks = [], isLoading } = useSchoolTasks();
+    useRefreshOnFocus(["schoolTasks"]);
+
+    if (isLoading) {
+      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
+    }
+
+    if (tasks.length === 0) {
+      return (
+        <EmptyTab
+          icon="check-square"
+          title="No school tasks"
+          subtitle="Track homework and school assignments here."
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={tasks}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <SchoolTaskCard task={item} />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  }
+
+  function HandoverNotesTab() {
+    const { data: notes = [], isLoading } = useHandoverNotes();
+    useRefreshOnFocus(["handoverNotes"]);
+
+    if (isLoading) {
+      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
+    }
+
+    if (notes.length === 0) {
+      return (
+        <EmptyTab
+          icon="edit-3"
+          title="No handover notes"
+          subtitle="Share important notes during custody handovers."
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={notes}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <HandoverNoteCard note={item} />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>
       <Stack.Screen options={{ title: "Education" }} />
 
-      <SegmentedControl activeTab={activeTab} onChangeTab={setActiveTab} />
+      <SegmentedControl />
 
       <View style={styles.tabContent}>
         {activeTab === "reading" && <ReadingListTab />}
@@ -291,13 +285,11 @@ export default function EducationScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   segmentedControl: {
     flexDirection: "row",
     marginHorizontal: 24,
     marginVertical: 12,
-    backgroundColor: "#F3F4F6",
     borderRadius: 10,
     padding: 3,
   },
@@ -307,17 +299,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 8,
   },
-  segmentActive: {
-    backgroundColor: "#FFFFFF",
-  },
   segmentText: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#6B7280",
-  },
-  segmentTextActive: {
-    color: TEAL,
-    fontWeight: "600",
   },
   tabContent: {
     flex: 1,
@@ -328,18 +312,15 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 0.5,
-    borderColor: "#E5E7EB",
   },
   bookIconWrapper: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#F0FDFA",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -368,12 +349,10 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
     flex: 1,
   },
   cardSubtitle: {
     fontSize: 13,
-    color: "#6B7280",
     marginTop: 2,
   },
   progressRow: {
@@ -385,25 +364,21 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#E5E7EB",
     borderRadius: 3,
     overflow: "hidden",
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: TEAL,
     borderRadius: 3,
   },
   progressText: {
     fontSize: 12,
     fontWeight: "600",
-    color: TEAL,
     minWidth: 36,
     textAlign: "right",
   },
   assignedTo: {
     fontSize: 12,
-    color: "#9CA3AF",
     marginTop: 4,
   },
   taskHeader: {
@@ -425,12 +400,10 @@ const styles = StyleSheet.create({
   },
   platform: {
     fontSize: 12,
-    color: "#9CA3AF",
     marginTop: 4,
   },
   taskDescription: {
     fontSize: 13,
-    color: "#6B7280",
     marginTop: 4,
     lineHeight: 18,
   },
@@ -443,15 +416,12 @@ const styles = StyleSheet.create({
   noteSender: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
   },
   noteDate: {
     fontSize: 12,
-    color: "#9CA3AF",
   },
   noteMessage: {
     fontSize: 14,
-    color: "#374151",
     lineHeight: 20,
   },
   emptyState: {
@@ -462,12 +432,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#6B7280",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
     marginTop: 6,
   },

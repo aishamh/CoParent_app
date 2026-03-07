@@ -1,4 +1,5 @@
 import {
+  type Family,
   type User,
   type InsertUser,
   type Child,
@@ -25,6 +26,7 @@ import {
   type InsertDocument,
 } from "../shared/schema";
 import {
+  families,
   users,
   children,
   events,
@@ -42,19 +44,25 @@ import { db } from "./db";
 import { eq, and, or, gte, lte, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // Family methods
+  createFamily(name: string, createdBy: string): Promise<Family>;
+  getFamily(id: string): Promise<Family | undefined>;
+  getFamilyByInviteCode(code: string): Promise<Family | undefined>;
+  joinFamily(userId: string, familyId: string): Promise<User | undefined>;
+
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
   // Children methods
-  getChildren(): Promise<Child[]>;
+  getChildren(familyId?: string): Promise<Child[]>;
   getChild(id: number): Promise<Child | undefined>;
   createChild(child: InsertChild): Promise<Child>;
   updateChild(id: number, child: Partial<InsertChild>): Promise<Child | undefined>;
 
   // Events methods
-  getEvents(childId?: number, startDate?: string, endDate?: string): Promise<Event[]>;
+  getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string): Promise<Event[]>;
   getEvent(id: number): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: number, event: Partial<InsertEvent>): Promise<Event | undefined>;
@@ -66,35 +74,35 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
 
   // Friends methods
-  getFriends(): Promise<Friend[]>;
+  getFriends(familyId?: string): Promise<Friend[]>;
   getFriend(id: number): Promise<Friend | undefined>;
   createFriend(friend: InsertFriend): Promise<Friend>;
   updateFriend(id: number, friend: Partial<InsertFriend>): Promise<Friend | undefined>;
 
   // Social Events methods
-  getSocialEvents(): Promise<SocialEvent[]>;
+  getSocialEvents(familyId?: string): Promise<SocialEvent[]>;
   getSocialEvent(id: number): Promise<SocialEvent | undefined>;
   createSocialEvent(event: InsertSocialEvent): Promise<SocialEvent>;
   updateSocialEvent(id: number, event: Partial<InsertSocialEvent>): Promise<SocialEvent | undefined>;
 
   // Reading List methods
-  getReadingList(childId?: number): Promise<ReadingListItem[]>;
+  getReadingList(familyId?: string, childId?: number): Promise<ReadingListItem[]>;
   getReadingListItem(id: number): Promise<ReadingListItem | undefined>;
   createReadingListItem(item: InsertReadingListItem): Promise<ReadingListItem>;
   updateReadingListItem(id: number, item: Partial<InsertReadingListItem>): Promise<ReadingListItem | undefined>;
 
   // School Tasks methods
-  getSchoolTasks(childId?: number): Promise<SchoolTask[]>;
+  getSchoolTasks(familyId?: string, childId?: number): Promise<SchoolTask[]>;
   getSchoolTask(id: number): Promise<SchoolTask | undefined>;
   createSchoolTask(task: InsertSchoolTask): Promise<SchoolTask>;
   updateSchoolTask(id: number, task: Partial<InsertSchoolTask>): Promise<SchoolTask | undefined>;
 
   // Handover Notes methods
-  getHandoverNotes(childId?: number): Promise<HandoverNote[]>;
+  getHandoverNotes(familyId?: string, childId?: number): Promise<HandoverNote[]>;
   createHandoverNote(note: InsertHandoverNote): Promise<HandoverNote>;
 
   // Expense methods
-  getExpenses(childId?: number, status?: string): Promise<Expense[]>;
+  getExpenses(familyId?: string, childId?: number, status?: string): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
@@ -117,6 +125,35 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Family methods
+  async createFamily(name: string, createdBy: string): Promise<Family> {
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const [family] = await db.insert(families).values({
+      name,
+      created_by: createdBy,
+      invite_code: inviteCode,
+    }).returning();
+    return family;
+  }
+
+  async getFamily(id: string): Promise<Family | undefined> {
+    const [family] = await db.select().from(families).where(eq(families.id, id));
+    return family || undefined;
+  }
+
+  async getFamilyByInviteCode(code: string): Promise<Family | undefined> {
+    const [family] = await db.select().from(families).where(eq(families.invite_code, code));
+    return family || undefined;
+  }
+
+  async joinFamily(userId: string, familyId: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ family_id: familyId })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated || undefined;
+  }
+
   // User methods
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -134,7 +171,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Children methods
-  async getChildren(): Promise<Child[]> {
+  async getChildren(familyId?: string): Promise<Child[]> {
+    if (familyId) {
+      return db.select().from(children).where(eq(children.family_id, familyId));
+    }
     return db.select().from(children);
   }
 
@@ -154,10 +194,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Events methods
-  async getEvents(childId?: number, startDate?: string, endDate?: string): Promise<Event[]> {
+  async getEvents(familyId?: string, childId?: number, startDate?: string, endDate?: string): Promise<Event[]> {
     const query = db.select().from(events);
 
     const conditions = [];
+    if (familyId) conditions.push(eq(events.family_id, familyId));
     if (childId) conditions.push(eq(events.child_id, childId));
     if (startDate) conditions.push(gte(events.start_date, startDate));
     if (endDate) conditions.push(lte(events.start_date, endDate));
@@ -207,7 +248,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Friends methods
-  async getFriends(): Promise<Friend[]> {
+  async getFriends(familyId?: string): Promise<Friend[]> {
+    if (familyId) {
+      return db.select().from(friends).where(eq(friends.family_id, familyId));
+    }
     return db.select().from(friends);
   }
 
@@ -227,7 +271,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Social Events methods
-  async getSocialEvents(): Promise<SocialEvent[]> {
+  async getSocialEvents(familyId?: string): Promise<SocialEvent[]> {
+    if (familyId) {
+      return db.select().from(socialEvents).where(eq(socialEvents.family_id, familyId));
+    }
     return db.select().from(socialEvents);
   }
 
@@ -247,9 +294,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Reading List methods
-  async getReadingList(childId?: number): Promise<ReadingListItem[]> {
-    if (childId) {
-      return db.select().from(readingList).where(eq(readingList.child_id, childId));
+  async getReadingList(familyId?: string, childId?: number): Promise<ReadingListItem[]> {
+    const conditions = [];
+    if (familyId) conditions.push(eq(readingList.family_id, familyId));
+    if (childId) conditions.push(eq(readingList.child_id, childId));
+
+    if (conditions.length > 0) {
+      return db.select().from(readingList).where(and(...conditions));
     }
     return db.select().from(readingList);
   }
@@ -270,9 +321,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // School Tasks methods
-  async getSchoolTasks(childId?: number): Promise<SchoolTask[]> {
-    if (childId) {
-      return db.select().from(schoolTasks).where(eq(schoolTasks.child_id, childId));
+  async getSchoolTasks(familyId?: string, childId?: number): Promise<SchoolTask[]> {
+    const conditions = [];
+    if (familyId) conditions.push(eq(schoolTasks.family_id, familyId));
+    if (childId) conditions.push(eq(schoolTasks.child_id, childId));
+
+    if (conditions.length > 0) {
+      return db.select().from(schoolTasks).where(and(...conditions));
     }
     return db.select().from(schoolTasks);
   }
@@ -293,11 +348,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Handover Notes methods
-  async getHandoverNotes(childId?: number): Promise<HandoverNote[]> {
+  async getHandoverNotes(familyId?: string, childId?: number): Promise<HandoverNote[]> {
     const query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at));
 
-    if (childId) {
-      return query.where(eq(handoverNotes.child_id, childId));
+    const conditions = [];
+    if (familyId) conditions.push(eq(handoverNotes.family_id, familyId));
+    if (childId) conditions.push(eq(handoverNotes.child_id, childId));
+
+    if (conditions.length > 0) {
+      return query.where(and(...conditions));
     }
     return query;
   }
@@ -308,10 +367,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Expense methods
-  async getExpenses(childId?: number, status?: string): Promise<Expense[]> {
+  async getExpenses(familyId?: string, childId?: number, status?: string): Promise<Expense[]> {
     const query = db.select().from(expenses).orderBy(desc(expenses.date));
 
     const conditions = [];
+    if (familyId) conditions.push(eq(expenses.family_id, familyId));
     if (childId) conditions.push(eq(expenses.child_id, childId));
     if (status) conditions.push(eq(expenses.status, status));
 

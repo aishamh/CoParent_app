@@ -203,7 +203,7 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
-// Validate request origin
+// Validate request origin and set CORS headers
 export const validateOrigin = (req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
 
@@ -212,23 +212,30 @@ export const validateOrigin = (req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // Get allowed origins from environment
   const allowedOrigins = (
     process.env.ALLOWED_ORIGINS ||
     (process.env.NODE_ENV === 'production'
-      ? 'https://your-domain.netlify.app'
-      : 'http://localhost:5173')
+      ? 'https://co-parent-app-mu.vercel.app'
+      : 'http://localhost:5173,http://localhost:5000')
   ).split(',');
 
-  // Check if origin is allowed
   const isAllowed = allowedOrigins.some((allowed) => {
     return origin === allowed.trim() || allowed.trim() === '*';
   });
 
   if (!isAllowed) {
-    return res.status(403).json({
-      error: 'Origin not allowed',
-    });
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  // Set CORS headers for allowed origins
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
   }
 
   next();
@@ -272,6 +279,6 @@ export const applySecurityMiddleware = (app: any) => {
   // Request size limiting
   app.use(requestSizeLimiter());
 
-  // Input sanitization (optional, can be enabled per route)
-  // app.use(sanitizeInput);
+  // Input sanitization
+  app.use(sanitizeInput);
 };

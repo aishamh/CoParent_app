@@ -4,11 +4,8 @@ import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import Card from "../../src/components/ui/Card";
-
-const TEAL = "#0d9488";
-const AMBER = "#f59e0b";
-const BACKGROUND = "#FDFAF5";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -39,77 +36,75 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "View Documents", icon: "folder", route: "/(screens)/documents" },
 ];
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <Card style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Card>
-  );
-}
-
-function QuickActionButton({ action }: { action: QuickAction }) {
-  const handlePress = () => {
-    router.push(action.route as never);
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      style={styles.actionButton}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={action.label}
-    >
-      <View style={styles.actionIconWrapper}>
-        <Feather name={action.icon} size={22} color={TEAL} />
-      </View>
-      <Text style={styles.actionLabel}>{action.label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const displayName = user?.display_name || user?.username || "there";
 
+  function StatCard({
+    label,
+    value,
+  }: {
+    label: string;
+    value: string | number;
+  }) {
+    return (
+      <Card style={styles.statCard}>
+        <Text style={[styles.statValue, { color: colors.primary }]}>{value}</Text>
+        <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      </Card>
+    );
+  }
+
+  function QuickActionButton({ action }: { action: QuickAction }) {
+    const handlePress = () => {
+      router.push(action.route as never);
+    };
+
+    return (
+      <TouchableOpacity
+        onPress={handlePress}
+        style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.muted }]}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={action.label}
+      >
+        <View style={[styles.actionIconWrapper, { backgroundColor: colors.accent }]}>
+          <Feather name={action.icon} size={22} color={colors.primary} />
+        </View>
+        <Text style={[styles.actionLabel, { color: colors.foreground }]}>{action.label}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Greeting */}
         <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>
+          <Text style={[styles.greeting, { color: colors.foreground }]}>
             {getGreeting()}, {displayName}!
           </Text>
-          <Text style={styles.date}>{formatTodayDate()}</Text>
+          <Text style={[styles.date, { color: colors.mutedForeground }]}>{formatTodayDate()}</Text>
         </View>
 
-        {/* Today's Schedule */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Schedule</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Today's Schedule</Text>
           <Card>
             <View style={styles.emptyState}>
-              <Feather name="calendar" size={32} color="#D1D5DB" />
-              <Text style={styles.emptyText}>No events today</Text>
-              <Text style={styles.emptySubtext}>
+              <Feather name="calendar" size={32} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No events today</Text>
+              <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
                 Tap "Add Event" below to schedule something
               </Text>
             </View>
           </Card>
         </View>
 
-        {/* Quick Stats */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Stats</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Quick Stats</Text>
           <View style={styles.statsRow}>
             <StatCard label="Children" value={0} />
             <StatCard label="This Week" value={0} />
@@ -117,9 +112,8 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             {QUICK_ACTIONS.map((action) => (
               <QuickActionButton key={action.label} action={action} />
@@ -134,7 +128,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   scroll: {
     paddingHorizontal: 24,
@@ -147,12 +140,10 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 4,
   },
   date: {
     fontSize: 14,
-    color: "#6B7280",
   },
   section: {
     marginBottom: 24,
@@ -160,7 +151,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111827",
     marginBottom: 12,
   },
   emptyState: {
@@ -170,12 +160,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#6B7280",
     marginTop: 12,
   },
   emptySubtext: {
     fontSize: 13,
-    color: "#9CA3AF",
     marginTop: 4,
   },
   statsRow: {
@@ -190,12 +178,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 28,
     fontWeight: "700",
-    color: TEAL,
   },
   statLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#6B7280",
     marginTop: 4,
   },
   actionsGrid: {
@@ -205,18 +191,15 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: "47%",
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     paddingVertical: 20,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#F3F4F6",
   },
   actionIconWrapper: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#F0FDFA",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -224,6 +207,5 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#374151",
   },
 });

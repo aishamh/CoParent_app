@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import {
   format,
   startOfMonth,
@@ -28,12 +30,11 @@ import {
 } from "date-fns";
 
 import { useEvents } from "../../src/hooks/useEvents";
+import { useTheme } from "../../src/theme/useTheme";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
-import { formatTime } from "../../src/utils/formatDate";
+import EventForm from "../../src/components/forms/EventForm";
 import type { Event } from "../../src/types/schema";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
+import type { ColorPalette } from "../../src/constants/colors";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -53,7 +54,7 @@ function getEventTypeColor(type: string): string {
   return EVENT_TYPE_COLORS[type] ?? EVENT_TYPE_COLORS.other;
 }
 
-function EventCard({ event }: { event: Event }) {
+function EventCard({ event, colors }: { event: Event; colors: ColorPalette }) {
   const borderColor = getEventTypeColor(event.type);
   const timeDisplay = event.start_time !== "00:00"
     ? `${event.start_time} - ${event.end_time}`
@@ -77,20 +78,20 @@ function EventCard({ event }: { event: Event }) {
   return (
     <TouchableOpacity
       onPress={handlePress}
-      style={[styles.eventCard, { borderLeftColor: borderColor }]}
+      style={[styles.eventCard, { backgroundColor: colors.card, borderLeftColor: borderColor }]}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`Event: ${event.title}`}
     >
       <View style={styles.eventHeader}>
-        <Text style={styles.eventTitle} numberOfLines={1}>
+        <Text style={[styles.eventTitle, { color: colors.foreground }]} numberOfLines={1}>
           {event.title}
         </Text>
         <View style={[styles.typeBadge, { backgroundColor: borderColor }]}>
           <Text style={styles.typeBadgeText}>{event.type}</Text>
         </View>
       </View>
-      <Text style={styles.eventTime}>{timeDisplay}</Text>
+      <Text style={[styles.eventTime, { color: colors.mutedForeground }]}>{timeDisplay}</Text>
     </TouchableOpacity>
   );
 }
@@ -98,21 +99,23 @@ function EventCard({ event }: { event: Event }) {
 function ViewToggle({
   viewMode,
   onChangeViewMode,
+  colors,
 }: {
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
+  colors: ColorPalette;
 }) {
   const modes: ViewMode[] = ["month", "week", "day"];
 
   return (
-    <View style={styles.toggleRow}>
+    <View style={[styles.toggleRow, { backgroundColor: colors.muted }]}>
       {modes.map((mode) => {
         const isActive = mode === viewMode;
         return (
           <TouchableOpacity
             key={mode}
             onPress={() => onChangeViewMode(mode)}
-            style={[styles.toggleButton, isActive && styles.toggleButtonActive]}
+            style={[styles.toggleButton, isActive && { backgroundColor: colors.card }]}
             accessibilityRole="button"
             accessibilityLabel={`${mode} view`}
             accessibilityState={{ selected: isActive }}
@@ -120,7 +123,8 @@ function ViewToggle({
             <Text
               style={[
                 styles.toggleText,
-                isActive && styles.toggleTextActive,
+                { color: colors.mutedForeground },
+                isActive && { color: colors.primary, fontWeight: "600" },
               ]}
             >
               {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -136,10 +140,12 @@ function MonthView({
   selectedDate,
   onSelectDate,
   events,
+  colors,
 }: {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   events: Event[];
+  colors: ColorPalette;
 }) {
   const monthStart = startOfMonth(selectedDate);
   const monthEnd = endOfMonth(selectedDate);
@@ -159,7 +165,7 @@ function MonthView({
     <View>
       <View style={styles.dayNamesRow}>
         {DAY_NAMES.map((name) => (
-          <Text key={name} style={styles.dayNameText}>
+          <Text key={name} style={[styles.dayNameText, { color: colors.mutedForeground }]}>
             {name}
           </Text>
         ))}
@@ -177,7 +183,7 @@ function MonthView({
               onPress={() => onSelectDate(day)}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
+                isSelected && { backgroundColor: colors.primary },
               ]}
               accessibilityRole="button"
               accessibilityLabel={format(day, "MMMM d")}
@@ -185,8 +191,9 @@ function MonthView({
               <Text
                 style={[
                   styles.dayNumber,
-                  !isCurrentMonth && styles.dayNumberOutside,
-                  isSelected && styles.dayNumberSelected,
+                  { color: colors.foreground },
+                  !isCurrentMonth && { color: colors.border },
+                  isSelected && { color: colors.primaryForeground, fontWeight: "700" },
                 ]}
               >
                 {format(day, "d")}
@@ -195,7 +202,8 @@ function MonthView({
                 <View
                   style={[
                     styles.eventDot,
-                    isSelected && styles.eventDotSelected,
+                    { backgroundColor: colors.primary },
+                    isSelected && { backgroundColor: colors.primaryForeground },
                   ]}
                 />
               )}
@@ -211,10 +219,12 @@ function WeekView({
   selectedDate,
   onSelectDate,
   events,
+  colors,
 }: {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   events: Event[];
+  colors: ColorPalette;
 }) {
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = endOfWeek(selectedDate);
@@ -239,14 +249,19 @@ function WeekView({
           <TouchableOpacity
             key={dateKey}
             onPress={() => onSelectDate(day)}
-            style={[styles.weekDayCell, isSelected && styles.weekDayCellSelected]}
+            style={[
+              styles.weekDayCell,
+              { backgroundColor: colors.card },
+              isSelected && { backgroundColor: colors.primary },
+            ]}
             accessibilityRole="button"
             accessibilityLabel={format(day, "EEEE, MMMM d")}
           >
             <Text
               style={[
                 styles.weekDayName,
-                isSelected && styles.weekDayNameSelected,
+                { color: colors.mutedForeground },
+                isSelected && { color: colors.primaryForeground },
               ]}
             >
               {format(day, "EEE")}
@@ -254,7 +269,8 @@ function WeekView({
             <Text
               style={[
                 styles.weekDayNumber,
-                isSelected && styles.weekDayNumberSelected,
+                { color: colors.foreground },
+                isSelected && { color: colors.primaryForeground },
               ]}
             >
               {format(day, "d")}
@@ -263,7 +279,8 @@ function WeekView({
               <View
                 style={[
                   styles.eventDot,
-                  isSelected && styles.eventDotSelected,
+                  { backgroundColor: colors.primary },
+                  isSelected && { backgroundColor: colors.primaryForeground },
                 ]}
               />
             )}
@@ -277,8 +294,10 @@ function WeekView({
 export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [showEventForm, setShowEventForm] = useState(false);
+  const { colors } = useTheme();
 
-  const { data: events = [], isLoading } = useEvents();
+  const { data: events = [], isLoading, isRefetching, refetch } = useEvents();
   useRefreshOnFocus(["events"]);
 
   const selectedDateEvents = useMemo(() => {
@@ -305,15 +324,18 @@ export default function CalendarScreen() {
     return format(selectedDate, "MMMM yyyy");
   }, [selectedDate, viewMode]);
 
+  const handleFabPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowEventForm(true);
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Header */}
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={styles.headerSection}>
-        <Text style={styles.header}>Calendar</Text>
-        <ViewToggle viewMode={viewMode} onChangeViewMode={setViewMode} />
+        <Text style={[styles.header, { color: colors.foreground }]}>Calendar</Text>
+        <ViewToggle viewMode={viewMode} onChangeViewMode={setViewMode} colors={colors} />
       </View>
 
-      {/* Date Navigation */}
       <View style={styles.navRow}>
         <TouchableOpacity
           onPress={() => navigateDate("prev")}
@@ -321,26 +343,26 @@ export default function CalendarScreen() {
           accessibilityRole="button"
           accessibilityLabel="Previous"
         >
-          <Feather name="chevron-left" size={24} color="#374151" />
+          <Feather name="chevron-left" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={styles.navLabel}>{headerLabel}</Text>
+        <Text style={[styles.navLabel, { color: colors.foreground }]}>{headerLabel}</Text>
         <TouchableOpacity
           onPress={() => navigateDate("next")}
           style={styles.navButton}
           accessibilityRole="button"
           accessibilityLabel="Next"
         >
-          <Feather name="chevron-right" size={24} color="#374151" />
+          <Feather name="chevron-right" size={24} color={colors.foreground} />
         </TouchableOpacity>
       </View>
 
-      {/* Calendar View */}
       <View style={styles.calendarContainer}>
         {viewMode === "month" && (
           <MonthView
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             events={events}
+            colors={colors}
           />
         )}
         {viewMode === "week" && (
@@ -348,49 +370,61 @@ export default function CalendarScreen() {
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             events={events}
+            colors={colors}
           />
         )}
         {viewMode === "day" && null}
       </View>
 
-      {/* Events for Selected Day */}
       <View style={styles.eventsSection}>
-        <Text style={styles.eventsSectionTitle}>
+        <Text style={[styles.eventsSectionTitle, { color: colors.foreground }]}>
           Events for {format(selectedDate, "MMM d")}
         </Text>
 
         {isLoading ? (
           <ActivityIndicator
             size="small"
-            color={TEAL}
+            color={colors.primary}
             style={styles.loader}
           />
         ) : selectedDateEvents.length === 0 ? (
           <View style={styles.emptyState}>
-            <Feather name="calendar" size={32} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No events on this day</Text>
+            <Feather name="calendar" size={32} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No events on this day</Text>
           </View>
         ) : (
           <FlatList
             data={selectedDateEvents}
             keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => <EventCard event={item} />}
+            renderItem={({ item }) => <EventCard event={item} colors={colors} />}
             contentContainerStyle={styles.eventsList}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={colors.primary}
+              />
+            }
           />
         )}
       </View>
 
-      {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => Alert.alert("Add Event", "Event creation form coming soon.")}
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={handleFabPress}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="Add event"
       >
-        <Feather name="plus" size={28} color="#FFFFFF" />
+        <Feather name="plus" size={28} color={colors.primaryForeground} />
       </TouchableOpacity>
+
+      <EventForm
+        visible={showEventForm}
+        onClose={() => setShowEventForm(false)}
+        initialDate={format(selectedDate, "yyyy-MM-dd")}
+      />
     </SafeAreaView>
   );
 }
@@ -398,7 +432,6 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   headerSection: {
     paddingHorizontal: 24,
@@ -408,12 +441,10 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 12,
   },
   toggleRow: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
     borderRadius: 10,
     padding: 3,
   },
@@ -423,17 +454,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 8,
   },
-  toggleButtonActive: {
-    backgroundColor: "#FFFFFF",
-  },
   toggleText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
-  },
-  toggleTextActive: {
-    color: TEAL,
-    fontWeight: "600",
   },
   navRow: {
     flexDirection: "row",
@@ -448,7 +471,6 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#374151",
   },
   calendarContainer: {
     paddingHorizontal: 16,
@@ -462,7 +484,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
     fontWeight: "600",
-    color: "#9CA3AF",
     paddingVertical: 4,
   },
   monthGrid: {
@@ -475,30 +496,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  dayCellSelected: {
-    backgroundColor: TEAL,
-  },
   dayNumber: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#374151",
-  },
-  dayNumberOutside: {
-    color: "#D1D5DB",
-  },
-  dayNumberSelected: {
-    color: "#FFFFFF",
-    fontWeight: "700",
   },
   eventDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: TEAL,
     marginTop: 3,
-  },
-  eventDotSelected: {
-    backgroundColor: "#FFFFFF",
   },
   weekRow: {
     flexDirection: "row",
@@ -510,27 +516,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  weekDayCellSelected: {
-    backgroundColor: TEAL,
   },
   weekDayName: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#9CA3AF",
     marginBottom: 4,
-  },
-  weekDayNameSelected: {
-    color: "#FFFFFF",
   },
   weekDayNumber: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#374151",
-  },
-  weekDayNumberSelected: {
-    color: "#FFFFFF",
   },
   eventsSection: {
     flex: 1,
@@ -540,14 +534,12 @@ const styles = StyleSheet.create({
   eventsSectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#374151",
     marginBottom: 8,
   },
   eventsList: {
     paddingBottom: 80,
   },
   eventCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
@@ -562,7 +554,6 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
     flex: 1,
     marginRight: 8,
   },
@@ -579,7 +570,6 @@ const styles = StyleSheet.create({
   },
   eventTime: {
     fontSize: 13,
-    color: "#6B7280",
   },
   emptyState: {
     alignItems: "center",
@@ -587,7 +577,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: "#9CA3AF",
     marginTop: 8,
   },
   loader: {
@@ -600,7 +589,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: TEAL,
     alignItems: "center",
     justifyContent: "center",
     elevation: 6,

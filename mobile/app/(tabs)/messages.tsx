@@ -12,22 +12,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import { useMessages, useSendMessage, useUnreadCount } from "../../src/hooks/useMessages";
 import { useRefreshOnFocus } from "../../src/hooks/useRefreshOnFocus";
 import { formatRelative } from "../../src/utils/formatDate";
 import type { Message } from "../../src/types/schema";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
+import type { ColorPalette } from "../../src/constants/colors";
 
 function MessageBubble({
   message,
   isSent,
+  colors,
 }: {
   message: Message;
   isSent: boolean;
+  colors: ColorPalette;
 }) {
   return (
     <View
@@ -39,13 +41,17 @@ function MessageBubble({
       <View
         style={[
           styles.bubble,
-          isSent ? styles.bubbleSent : styles.bubbleReceived,
+          isSent
+            ? [styles.bubbleSent, { backgroundColor: colors.primary }]
+            : [styles.bubbleReceived, { backgroundColor: colors.border }],
         ]}
       >
         <Text
           style={[
             styles.bubbleText,
-            isSent ? styles.bubbleTextSent : styles.bubbleTextReceived,
+            isSent
+              ? { color: colors.primaryForeground }
+              : { color: colors.foreground },
           ]}
         >
           {message.content}
@@ -57,14 +63,14 @@ function MessageBubble({
           isSent ? styles.metaRowSent : styles.metaRowReceived,
         ]}
       >
-        <Text style={styles.timestamp}>
+        <Text style={[styles.timestamp, { color: colors.mutedForeground }]}>
           {formatRelative(message.created_at)}
         </Text>
         {isSent && (
           <Feather
             name={message.is_read ? "check-circle" : "check"}
             size={12}
-            color={message.is_read ? TEAL : "#9CA3AF"}
+            color={message.is_read ? colors.primary : colors.mutedForeground}
             style={styles.readIcon}
           />
         )}
@@ -73,12 +79,12 @@ function MessageBubble({
   );
 }
 
-function EmptyMessages() {
+function EmptyMessages({ colors }: { colors: ColorPalette }) {
   return (
     <View style={styles.emptyState}>
-      <Feather name="message-circle" size={48} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No messages yet</Text>
-      <Text style={styles.emptySubtext}>
+      <Feather name="message-circle" size={48} color={colors.border} />
+      <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>No messages yet</Text>
+      <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
         Start a conversation with your co-parent.
       </Text>
     </View>
@@ -88,9 +94,11 @@ function EmptyMessages() {
 function ComposerBar({
   onSend,
   isSending,
+  colors,
 }: {
   onSend: (text: string) => void;
   isSending: boolean;
+  colors: ColorPalette;
 }) {
   const [text, setText] = useState("");
   const inputRef = useRef<TextInput>(null);
@@ -99,6 +107,7 @@ function ComposerBar({
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onSend(trimmed);
     setText("");
     inputRef.current?.focus();
@@ -107,12 +116,12 @@ function ComposerBar({
   const canSend = text.trim().length > 0 && !isSending;
 
   return (
-    <View style={styles.composerBar}>
+    <View style={[styles.composerBar, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
       <TextInput
         ref={inputRef}
-        style={styles.composerInput}
+        style={[styles.composerInput, { backgroundColor: colors.muted, color: colors.foreground }]}
         placeholder="Type a message..."
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={colors.mutedForeground}
         value={text}
         onChangeText={setText}
         multiline
@@ -125,18 +134,22 @@ function ComposerBar({
       <TouchableOpacity
         onPress={handleSend}
         disabled={!canSend}
-        style={[styles.sendButton, canSend && styles.sendButtonActive]}
+        style={[
+          styles.sendButton,
+          { backgroundColor: colors.border },
+          canSend && { backgroundColor: colors.primary },
+        ]}
         accessibilityRole="button"
         accessibilityLabel="Send message"
         accessibilityState={{ disabled: !canSend }}
       >
         {isSending ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color={colors.primaryForeground} />
         ) : (
           <Feather
             name="send"
             size={20}
-            color={canSend ? "#FFFFFF" : "#9CA3AF"}
+            color={canSend ? colors.primaryForeground : colors.mutedForeground}
           />
         )}
       </TouchableOpacity>
@@ -146,6 +159,7 @@ function ComposerBar({
 
 export default function MessagesScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const { data: messages = [], isLoading } = useMessages();
   const { data: unreadCount = 0 } = useUnreadCount();
   const sendMessageMutation = useSendMessage();
@@ -164,29 +178,27 @@ export default function MessagesScreen() {
   const currentUserId = user?.id;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
       >
-        {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.header}>Messages</Text>
+          <Text style={[styles.header, { color: colors.foreground }]}>Messages</Text>
           {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.unreadBadgeText, { color: colors.primaryForeground }]}>{unreadCount}</Text>
             </View>
           )}
         </View>
 
-        {/* Messages List */}
         {isLoading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={TEAL} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : messages.length === 0 ? (
-          <EmptyMessages />
+          <EmptyMessages colors={colors} />
         ) : (
           <FlatList
             data={messages}
@@ -195,6 +207,7 @@ export default function MessagesScreen() {
               <MessageBubble
                 message={item}
                 isSent={item.sender_id === currentUserId}
+                colors={colors}
               />
             )}
             inverted
@@ -203,10 +216,10 @@ export default function MessagesScreen() {
           />
         )}
 
-        {/* Composer */}
         <ComposerBar
           onSend={handleSend}
           isSending={sendMessageMutation.isPending}
+          colors={colors}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -216,7 +229,6 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   flex: {
     flex: 1,
@@ -231,11 +243,9 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
   },
   unreadBadge: {
     marginLeft: 10,
-    backgroundColor: TEAL,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -245,7 +255,6 @@ const styles = StyleSheet.create({
   unreadBadgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#FFFFFF",
   },
   loaderContainer: {
     flex: 1,
@@ -272,22 +281,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleSent: {
-    backgroundColor: TEAL,
     borderBottomRightRadius: 4,
   },
   bubbleReceived: {
-    backgroundColor: "#E5E7EB",
     borderBottomLeftRadius: 4,
   },
   bubbleText: {
     fontSize: 15,
     lineHeight: 21,
-  },
-  bubbleTextSent: {
-    color: "#FFFFFF",
-  },
-  bubbleTextReceived: {
-    color: "#1F2937",
   },
   metaRow: {
     flexDirection: "row",
@@ -303,7 +304,6 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 11,
-    color: "#9CA3AF",
   },
   readIcon: {
     marginLeft: 4,
@@ -317,12 +317,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#6B7280",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
     marginTop: 6,
   },
@@ -332,30 +330,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 0.5,
-    borderTopColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
   },
   composerInput: {
     flex: 1,
     minHeight: 40,
     maxHeight: 100,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#1F2937",
     marginRight: 8,
   },
   sendButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#D1D5DB",
     alignItems: "center",
     justifyContent: "center",
-  },
-  sendButtonActive: {
-    backgroundColor: TEAL,
   },
 });

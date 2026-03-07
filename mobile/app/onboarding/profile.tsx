@@ -13,12 +13,10 @@ import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import Button from "../../src/components/ui/Button";
 import TextInput from "../../src/components/ui/TextInput";
 import ProgressDots from "../../src/components/ui/ProgressDots";
-
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
 
 function buildInitials(displayName: string | null | undefined): string {
   if (!displayName) return "";
@@ -31,6 +29,7 @@ function buildInitials(displayName: string | null | undefined): string {
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
 
@@ -42,7 +41,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -54,14 +53,19 @@ export default function ProfileScreen() {
           <ProgressDots total={4} current={1} />
 
           <View style={styles.content}>
-            <Text style={styles.title}>Set Up Your Profile</Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>Set Up Your Profile</Text>
 
             <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+              >
                 {hasInitials ? (
-                  <Text style={styles.avatarText}>{initials}</Text>
+                  <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
                 ) : (
-                  <Feather name="camera" size={32} color="#9CA3AF" />
+                  <Feather name="camera" size={32} color={colors.mutedForeground} />
                 )}
               </View>
             </View>
@@ -87,7 +91,7 @@ export default function ProfileScreen() {
               accessibilityRole="link"
               accessibilityLabel="Skip profile setup"
             >
-              <Text style={styles.skipText}>Skip</Text>
+              <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -99,7 +103,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   flex: {
     flex: 1,
@@ -115,7 +118,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     textAlign: "center",
     marginBottom: 32,
   },
@@ -127,16 +129,13 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: "#F3F4F6",
     borderWidth: 2,
-    borderColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     fontSize: 32,
     fontWeight: "700",
-    color: TEAL,
   },
   form: {
     width: "100%",
@@ -153,6 +152,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
   },
 });

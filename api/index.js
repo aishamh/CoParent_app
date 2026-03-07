@@ -204,6 +204,28 @@ var db = drizzle(sql, { schema: tables_exports });
 // server/storage.ts
 import { eq, and, or, gte, lte, desc } from "drizzle-orm";
 var DatabaseStorage = class {
+  // Family methods
+  async createFamily(name, createdBy) {
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const [family] = await db.insert(families).values({
+      name,
+      created_by: createdBy,
+      invite_code: inviteCode
+    }).returning();
+    return family;
+  }
+  async getFamily(id) {
+    const [family] = await db.select().from(families).where(eq(families.id, id));
+    return family || void 0;
+  }
+  async getFamilyByInviteCode(code) {
+    const [family] = await db.select().from(families).where(eq(families.invite_code, code));
+    return family || void 0;
+  }
+  async joinFamily(userId, familyId) {
+    const [updated] = await db.update(users).set({ family_id: familyId }).where(eq(users.id, userId)).returning();
+    return updated || void 0;
+  }
   // User methods
   async getUser(id) {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -218,7 +240,10 @@ var DatabaseStorage = class {
     return user;
   }
   // Children methods
-  async getChildren() {
+  async getChildren(familyId) {
+    if (familyId) {
+      return db.select().from(children).where(eq(children.family_id, familyId));
+    }
     return db.select().from(children);
   }
   async getChild(id) {
@@ -234,9 +259,10 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Events methods
-  async getEvents(childId, startDate, endDate) {
+  async getEvents(familyId, childId, startDate, endDate) {
     const query = db.select().from(events);
     const conditions = [];
+    if (familyId) conditions.push(eq(events.family_id, familyId));
     if (childId) conditions.push(eq(events.child_id, childId));
     if (startDate) conditions.push(gte(events.start_date, startDate));
     if (endDate) conditions.push(lte(events.start_date, endDate));
@@ -277,7 +303,10 @@ var DatabaseStorage = class {
     return newActivity;
   }
   // Friends methods
-  async getFriends() {
+  async getFriends(familyId) {
+    if (familyId) {
+      return db.select().from(friends).where(eq(friends.family_id, familyId));
+    }
     return db.select().from(friends);
   }
   async getFriend(id) {
@@ -293,7 +322,10 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Social Events methods
-  async getSocialEvents() {
+  async getSocialEvents(familyId) {
+    if (familyId) {
+      return db.select().from(socialEvents).where(eq(socialEvents.family_id, familyId));
+    }
     return db.select().from(socialEvents);
   }
   async getSocialEvent(id) {
@@ -309,9 +341,12 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Reading List methods
-  async getReadingList(childId) {
-    if (childId) {
-      return db.select().from(readingList).where(eq(readingList.child_id, childId));
+  async getReadingList(familyId, childId) {
+    const conditions = [];
+    if (familyId) conditions.push(eq(readingList.family_id, familyId));
+    if (childId) conditions.push(eq(readingList.child_id, childId));
+    if (conditions.length > 0) {
+      return db.select().from(readingList).where(and(...conditions));
     }
     return db.select().from(readingList);
   }
@@ -328,9 +363,12 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // School Tasks methods
-  async getSchoolTasks(childId) {
-    if (childId) {
-      return db.select().from(schoolTasks).where(eq(schoolTasks.child_id, childId));
+  async getSchoolTasks(familyId, childId) {
+    const conditions = [];
+    if (familyId) conditions.push(eq(schoolTasks.family_id, familyId));
+    if (childId) conditions.push(eq(schoolTasks.child_id, childId));
+    if (conditions.length > 0) {
+      return db.select().from(schoolTasks).where(and(...conditions));
     }
     return db.select().from(schoolTasks);
   }
@@ -347,10 +385,13 @@ var DatabaseStorage = class {
     return updated || void 0;
   }
   // Handover Notes methods
-  async getHandoverNotes(childId) {
+  async getHandoverNotes(familyId, childId) {
     const query = db.select().from(handoverNotes).orderBy(desc(handoverNotes.created_at));
-    if (childId) {
-      return query.where(eq(handoverNotes.child_id, childId));
+    const conditions = [];
+    if (familyId) conditions.push(eq(handoverNotes.family_id, familyId));
+    if (childId) conditions.push(eq(handoverNotes.child_id, childId));
+    if (conditions.length > 0) {
+      return query.where(and(...conditions));
     }
     return query;
   }
@@ -359,9 +400,10 @@ var DatabaseStorage = class {
     return newNote;
   }
   // Expense methods
-  async getExpenses(childId, status) {
+  async getExpenses(familyId, childId, status) {
     const query = db.select().from(expenses).orderBy(desc(expenses.date));
     const conditions = [];
+    if (familyId) conditions.push(eq(expenses.family_id, familyId));
     if (childId) conditions.push(eq(expenses.child_id, childId));
     if (status) conditions.push(eq(expenses.status, status));
     if (conditions.length > 0) {
@@ -463,8 +505,14 @@ var storage = new DatabaseStorage();
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 var SALT_ROUNDS = 10;
-var JWT_SECRET = process.env.JWT_SECRET || "coparent-jwt-secret-change-in-production";
 var JWT_EXPIRES_IN = "7d";
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
 async function hashPassword(password) {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -476,11 +524,11 @@ function sanitizeUser(user) {
   return userWithoutPassword;
 }
 function generateToken(userId) {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign({ userId }, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN });
 }
 function verifyToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, getJwtSecret());
   } catch {
     return null;
   }
@@ -492,7 +540,7 @@ function extractToken(req) {
   }
   return req.cookies?.token || null;
 }
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -502,6 +550,11 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
   req.userId = payload.userId;
+  const user = await storage.getUser(payload.userId);
+  if (!user) {
+    return res.status(401).json({ error: "User not found" });
+  }
+  req.familyId = user.family_id;
   next();
 }
 
@@ -609,19 +662,54 @@ var requestSizeLimiter = (maxSize = 10 * 1024 * 1024) => {
     next();
   };
 };
+var sanitizeInput = (req, res, next) => {
+  const sanitize = (obj) => {
+    if (typeof obj === "string") {
+      return obj.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;").replace(/\//g, "&#x2F;");
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(sanitize);
+    }
+    if (obj !== null && typeof obj === "object") {
+      const sanitized = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          sanitized[key] = sanitize(obj[key]);
+        }
+      }
+      return sanitized;
+    }
+    return obj;
+  };
+  if (req.body) {
+    req.body = sanitize(req.body);
+  }
+  if (req.query) {
+    req.query = sanitize(req.query);
+  }
+  if (req.params) {
+    req.params = sanitize(req.params);
+  }
+  next();
+};
 var validateOrigin = (req, res, next) => {
   const origin = req.headers.origin;
   if (!origin) {
     return next();
   }
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || (process.env.NODE_ENV === "production" ? "https://your-domain.netlify.app" : "http://localhost:5173")).split(",");
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || (process.env.NODE_ENV === "production" ? "https://co-parent-app-mu.vercel.app" : "http://localhost:5173,http://localhost:5000")).split(",");
   const isAllowed = allowedOrigins.some((allowed) => {
     return origin === allowed.trim() || allowed.trim() === "*";
   });
   if (!isAllowed) {
-    return res.status(403).json({
-      error: "Origin not allowed"
-    });
+    return res.status(403).json({ error: "Origin not allowed" });
+  }
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") {
+    return res.status(204).send();
   }
   next();
 };
@@ -641,6 +729,7 @@ var applySecurityMiddleware = (app2) => {
   app2.use(validateOrigin);
   app2.use(generalRateLimiter);
   app2.use(requestSizeLimiter());
+  app2.use(sanitizeInput);
 };
 
 // shared/schema.ts
@@ -773,6 +862,13 @@ async function registerRoutes(httpServer2, app2) {
         ...validatedData,
         password: hashedPassword
       });
+      const displayName = validatedData.display_name || validatedData.username;
+      const family = await storage.createFamily(
+        `${displayName}'s Family`,
+        user.id
+      );
+      await storage.joinFamily(user.id, family.id);
+      const updatedUser = await storage.getUser(user.id);
       const token = generateToken(user.id);
       res.cookie("token", token, {
         httpOnly: true,
@@ -781,23 +877,20 @@ async function registerRoutes(httpServer2, app2) {
         maxAge: 7 * 24 * 60 * 60 * 1e3
         // 7 days
       });
-      res.status(201).json({ ...sanitizeUser(user), token });
+      res.status(201).json({ ...sanitizeUser(updatedUser || user), token });
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
   app2.post("/api/auth/login", authRateLimiter, async (req, res) => {
     try {
-      console.log("Login attempt for username:", req.body.username);
       const validatedData = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(validatedData.username);
       if (!user) {
-        console.log("User not found:", validatedData.username);
         return res.status(401).json({ error: "Invalid credentials" });
       }
       const isValid = await verifyPassword(validatedData.password, user.password);
       if (!isValid) {
-        console.log("Invalid password for user:", validatedData.username);
         return res.status(401).json({ error: "Invalid credentials" });
       }
       const token = generateToken(user.id);
@@ -808,10 +901,8 @@ async function registerRoutes(httpServer2, app2) {
         maxAge: 7 * 24 * 60 * 60 * 1e3
         // 7 days
       });
-      console.log("Login successful for user:", user.username);
       res.json({ ...sanitizeUser(user), token });
     } catch (error) {
-      console.error("Login error:", error);
       if (error instanceof Error) {
         res.status(400).json({ error: error.message });
       } else {
@@ -830,42 +921,91 @@ async function registerRoutes(httpServer2, app2) {
     }
     res.json(sanitizeUser(user));
   });
-  app2.get("/api/expenses", async (req, res) => {
+  app2.get("/api/family", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
+    if (!familyId) {
+      return res.status(404).json({ error: "No family found" });
+    }
+    const family = await storage.getFamily(familyId);
+    if (!family) {
+      return res.status(404).json({ error: "Family not found" });
+    }
+    res.json(family);
+  });
+  app2.post("/api/family/join", requireAuth, async (req, res) => {
+    try {
+      const { invite_code } = req.body;
+      if (!invite_code || typeof invite_code !== "string") {
+        return res.status(400).json({ error: "Invite code is required" });
+      }
+      const family = await storage.getFamilyByInviteCode(invite_code.toUpperCase());
+      if (!family) {
+        return res.status(404).json({ error: "Invalid invite code" });
+      }
+      const updatedUser = await storage.joinFamily(req.userId, family.id);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to join family" });
+      }
+      res.json({ family, user: sanitizeUser(updatedUser) });
+    } catch (error) {
+      res.status(400).json({ error: "Failed to join family" });
+    }
+  });
+  app2.get("/api/expenses", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
     const { childId, status } = req.query;
     const expenses2 = await storage.getExpenses(
+      familyId,
       childId ? parseInt(childId) : void 0,
       status
     );
     res.json(expenses2);
   });
-  app2.get("/api/expenses/:id", async (req, res) => {
+  app2.get("/api/expenses/:id", requireAuth, async (req, res) => {
     const expense = await storage.getExpense(parseInt(req.params.id));
     if (!expense) {
       return res.status(404).json({ error: "Expense not found" });
     }
+    if (expense.family_id !== req.familyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     res.json(expense);
   });
-  app2.post("/api/expenses", async (req, res) => {
+  app2.post("/api/expenses", requireAuth, async (req, res) => {
     try {
       const validatedData = insertExpenseSchema.parse(req.body);
-      const expense = await storage.createExpense(validatedData);
+      const expense = await storage.createExpense({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(expense);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/expenses/:id", async (req, res) => {
+  app2.patch("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
-      const expense = await storage.updateExpense(parseInt(req.params.id), req.body);
-      if (!expense) {
+      const existing = await storage.getExpense(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Expense not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const expense = await storage.updateExpense(parseInt(req.params.id), req.body);
       res.json(expense);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.delete("/api/expenses/:id", async (req, res) => {
+  app2.delete("/api/expenses/:id", requireAuth, async (req, res) => {
+    const existing = await storage.getExpense(parseInt(req.params.id));
+    if (!existing) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    if (existing.family_id !== req.familyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const success = await storage.deleteExpense(parseInt(req.params.id));
     if (!success) {
       return res.status(404).json({ error: "Expense not found" });
@@ -1010,62 +1150,78 @@ async function registerRoutes(httpServer2, app2) {
     const updated = await storage.shareDocument(parseInt(req.params.id), userIds);
     res.json(updated);
   });
-  app2.get("/api/children", async (req, res) => {
-    const children2 = await storage.getChildren();
+  app2.get("/api/children", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
+    const children2 = await storage.getChildren(familyId);
     res.json(children2);
   });
-  app2.get("/api/children/:id", async (req, res) => {
+  app2.get("/api/children/:id", requireAuth, async (req, res) => {
     const child = await storage.getChild(parseInt(req.params.id));
     if (!child) {
       return res.status(404).json({ error: "Child not found" });
     }
+    if (child.family_id !== req.familyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     res.json(child);
   });
-  app2.post("/api/children", async (req, res) => {
+  app2.post("/api/children", requireAuth, async (req, res) => {
     try {
       const validatedData = insertChildSchema.parse(req.body);
-      const child = await storage.createChild(validatedData);
+      const child = await storage.createChild({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(child);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/children/:id", async (req, res) => {
+  app2.patch("/api/children/:id", requireAuth, async (req, res) => {
     try {
-      const child = await storage.updateChild(parseInt(req.params.id), req.body);
-      if (!child) {
+      const existing = await storage.getChild(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Child not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const child = await storage.updateChild(parseInt(req.params.id), req.body);
       res.json(child);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.get("/api/events", async (req, res) => {
+  app2.get("/api/events", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
     const { childId, startDate, endDate } = req.query;
     const events2 = await storage.getEvents(
+      familyId,
       childId ? parseInt(childId) : void 0,
       startDate,
       endDate
     );
     res.json(events2);
   });
-  app2.get("/api/events/:id", async (req, res) => {
+  app2.get("/api/events/:id", requireAuth, async (req, res) => {
     const event = await storage.getEvent(parseInt(req.params.id));
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
+    if (event.family_id !== req.familyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     res.json(event);
   });
-  app2.post("/api/events", async (req, res) => {
+  app2.post("/api/events", requireAuth, async (req, res) => {
     try {
-      console.log("Received event data:", JSON.stringify(req.body, null, 2));
       const validatedData = insertEventSchema.parse(req.body);
-      console.log("Validated event data:", validatedData);
-      const event = await storage.createEvent(validatedData);
+      const event = await storage.createEvent({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(event);
     } catch (error) {
-      console.error("Event creation error:", error);
       if (error instanceof Error) {
         res.status(400).json({ error: error.message });
       } else {
@@ -1073,30 +1229,41 @@ async function registerRoutes(httpServer2, app2) {
       }
     }
   });
-  app2.patch("/api/events/:id", async (req, res) => {
+  app2.patch("/api/events/:id", requireAuth, async (req, res) => {
     try {
-      const event = await storage.updateEvent(parseInt(req.params.id), req.body);
-      if (!event) {
+      const existing = await storage.getEvent(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Event not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const event = await storage.updateEvent(parseInt(req.params.id), req.body);
       res.json(event);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.delete("/api/events/:id", async (req, res) => {
+  app2.delete("/api/events/:id", requireAuth, async (req, res) => {
+    const existing = await storage.getEvent(parseInt(req.params.id));
+    if (!existing) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    if (existing.family_id !== req.familyId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const success = await storage.deleteEvent(parseInt(req.params.id));
     if (!success) {
       return res.status(404).json({ error: "Event not found" });
     }
     res.status(204).send();
   });
-  app2.get("/api/activities", async (req, res) => {
+  app2.get("/api/activities", requireAuth, async (req, res) => {
     const { season } = req.query;
     const activities2 = await storage.getActivities(season);
     res.json(activities2);
   });
-  app2.post("/api/activities", async (req, res) => {
+  app2.post("/api/activities", requireAuth, async (req, res) => {
     try {
       const validatedData = insertActivitySchema.parse(req.body);
       const activity = await storage.createActivity(validatedData);
@@ -1269,119 +1436,158 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: "Failed to fetch Oslo events" });
     }
   });
-  app2.get("/api/friends", async (req, res) => {
-    const friends2 = await storage.getFriends();
+  app2.get("/api/friends", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
+    const friends2 = await storage.getFriends(familyId);
     res.json(friends2);
   });
-  app2.post("/api/friends", async (req, res) => {
+  app2.post("/api/friends", requireAuth, async (req, res) => {
     try {
       const validatedData = insertFriendSchema.parse(req.body);
-      const friend = await storage.createFriend(validatedData);
+      const friend = await storage.createFriend({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(friend);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/friends/:id", async (req, res) => {
+  app2.patch("/api/friends/:id", requireAuth, async (req, res) => {
     try {
-      const friend = await storage.updateFriend(parseInt(req.params.id), req.body);
-      if (!friend) {
+      const existing = await storage.getFriend(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Friend not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const friend = await storage.updateFriend(parseInt(req.params.id), req.body);
       res.json(friend);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.get("/api/social-events", async (req, res) => {
-    const events2 = await storage.getSocialEvents();
+  app2.get("/api/social-events", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
+    const events2 = await storage.getSocialEvents(familyId);
     res.json(events2);
   });
-  app2.post("/api/social-events", async (req, res) => {
+  app2.post("/api/social-events", requireAuth, async (req, res) => {
     try {
       const validatedData = insertSocialEventSchema.parse(req.body);
-      const event = await storage.createSocialEvent(validatedData);
+      const event = await storage.createSocialEvent({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(event);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/social-events/:id", async (req, res) => {
+  app2.patch("/api/social-events/:id", requireAuth, async (req, res) => {
     try {
-      const event = await storage.updateSocialEvent(parseInt(req.params.id), req.body);
-      if (!event) {
+      const existing = await storage.getSocialEvent(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Social event not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const event = await storage.updateSocialEvent(parseInt(req.params.id), req.body);
       res.json(event);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.get("/api/reading-list", async (req, res) => {
+  app2.get("/api/reading-list", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
     const { childId } = req.query;
     const items = await storage.getReadingList(
+      familyId,
       childId ? parseInt(childId) : void 0
     );
     res.json(items);
   });
-  app2.post("/api/reading-list", async (req, res) => {
+  app2.post("/api/reading-list", requireAuth, async (req, res) => {
     try {
       const validatedData = insertReadingListSchema.parse(req.body);
-      const item = await storage.createReadingListItem(validatedData);
+      const item = await storage.createReadingListItem({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(item);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/reading-list/:id", async (req, res) => {
+  app2.patch("/api/reading-list/:id", requireAuth, async (req, res) => {
     try {
-      const item = await storage.updateReadingListItem(parseInt(req.params.id), req.body);
-      if (!item) {
+      const existing = await storage.getReadingListItem(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "Reading list item not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const item = await storage.updateReadingListItem(parseInt(req.params.id), req.body);
       res.json(item);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.get("/api/school-tasks", async (req, res) => {
+  app2.get("/api/school-tasks", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
     const { childId } = req.query;
     const tasks = await storage.getSchoolTasks(
+      familyId,
       childId ? parseInt(childId) : void 0
     );
     res.json(tasks);
   });
-  app2.post("/api/school-tasks", async (req, res) => {
+  app2.post("/api/school-tasks", requireAuth, async (req, res) => {
     try {
       const validatedData = insertSchoolTaskSchema.parse(req.body);
-      const task = await storage.createSchoolTask(validatedData);
+      const task = await storage.createSchoolTask({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(task);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.patch("/api/school-tasks/:id", async (req, res) => {
+  app2.patch("/api/school-tasks/:id", requireAuth, async (req, res) => {
     try {
-      const task = await storage.updateSchoolTask(parseInt(req.params.id), req.body);
-      if (!task) {
+      const existing = await storage.getSchoolTask(parseInt(req.params.id));
+      if (!existing) {
         return res.status(404).json({ error: "School task not found" });
       }
+      if (existing.family_id !== req.familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const task = await storage.updateSchoolTask(parseInt(req.params.id), req.body);
       res.json(task);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
   });
-  app2.get("/api/handover-notes", async (req, res) => {
+  app2.get("/api/handover-notes", requireAuth, async (req, res) => {
+    const familyId = req.familyId;
     const { childId } = req.query;
     const notes = await storage.getHandoverNotes(
+      familyId,
       childId ? parseInt(childId) : void 0
     );
     res.json(notes);
   });
-  app2.post("/api/handover-notes", async (req, res) => {
+  app2.post("/api/handover-notes", requireAuth, async (req, res) => {
     try {
       const validatedData = insertHandoverNoteSchema.parse(req.body);
-      const note = await storage.createHandoverNote(validatedData);
+      const note = await storage.createHandoverNote({
+        ...validatedData,
+        family_id: req.familyId
+      });
       res.status(201).json(note);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });

@@ -2,20 +2,22 @@ import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import Button from "../../src/components/ui/Button";
 import ProgressDots from "../../src/components/ui/ProgressDots";
 
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
 const PLACEHOLDER_CODE = "COPARENT-XXXX";
 
 export default function InviteScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const inviteCode = user?.family_id ?? PLACEHOLDER_CODE;
 
   const handleShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({
         message: `Join our family on CoParent Connect! Use invite code: ${inviteCode}`,
@@ -26,26 +28,27 @@ export default function InviteScreen() {
   };
 
   const navigateToHome = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.replace("/(tabs)");
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
         <ProgressDots total={4} current={3} />
 
         <View style={styles.content}>
-          <Text style={styles.title}>Invite Your Co-Parent</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Invite Your Co-Parent</Text>
 
-          <Text style={styles.description}>
+          <Text style={[styles.description, { color: colors.mutedForeground }]}>
             Share an invite code with your co-parent so they can join your
             family.
           </Text>
 
-          <View style={styles.codeCard}>
-            <Text style={styles.codeLabel}>Your Invite Code</Text>
+          <View style={[styles.codeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.codeLabel, { color: colors.mutedForeground }]}>Your Invite Code</Text>
             <Text
-              style={styles.codeValue}
+              style={[styles.codeValue, { color: colors.primary }]}
               selectable
               accessibilityLabel={`Invite code: ${inviteCode}`}
             >
@@ -55,12 +58,12 @@ export default function InviteScreen() {
 
           <Pressable
             onPress={handleShare}
-            style={styles.shareButton}
+            style={[styles.shareButton, { borderColor: colors.primary }]}
             accessibilityRole="button"
             accessibilityLabel="Share invite code"
           >
-            <Feather name="share-2" size={20} color={TEAL} />
-            <Text style={styles.shareText}>Share Code</Text>
+            <Feather name="share-2" size={20} color={colors.primary} />
+            <Text style={[styles.shareText, { color: colors.primary }]}>Share Code</Text>
           </Pressable>
         </View>
 
@@ -73,7 +76,7 @@ export default function InviteScreen() {
             accessibilityRole="link"
             accessibilityLabel="Skip inviting co-parent"
           >
-            <Text style={styles.skipText}>Skip for now</Text>
+            <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip for now</Text>
           </Pressable>
         </View>
       </View>
@@ -84,7 +87,6 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   container: {
     flex: 1,
@@ -98,33 +100,28 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     textAlign: "center",
     marginBottom: 12,
   },
   description: {
     fontSize: 16,
-    color: "#6B7280",
     textAlign: "center",
     lineHeight: 24,
     paddingHorizontal: 16,
     marginBottom: 32,
   },
   codeCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 32,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
     marginBottom: 24,
     width: "100%",
   },
   codeLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#9CA3AF",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 8,
@@ -132,7 +129,6 @@ const styles = StyleSheet.create({
   codeValue: {
     fontSize: 24,
     fontWeight: "700",
-    color: TEAL,
     letterSpacing: 2,
   },
   shareButton: {
@@ -144,12 +140,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: TEAL,
   },
   shareText: {
     fontSize: 16,
     fontWeight: "600",
-    color: TEAL,
   },
   footer: {
     paddingBottom: 16,
@@ -163,6 +157,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
   },
 });

@@ -10,16 +10,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import Button from "../../src/components/ui/Button";
 import TextInput from "../../src/components/ui/TextInput";
 
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
-
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const { colors } = useTheme();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +34,7 @@ export default function LoginScreen() {
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     try {
       await signIn(username.trim(), password);
@@ -50,7 +51,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -60,8 +61,8 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>CoParent Connect</Text>
-            <Text style={styles.subtitle}>Sign in to your account</Text>
+            <Text style={[styles.title, { color: colors.primary }]}>CoParent Connect</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Sign in to your account</Text>
           </View>
 
           <View style={styles.form}>
@@ -86,7 +87,7 @@ export default function LoginScreen() {
               onSubmitEditing={handleSignIn}
             />
 
-            {error !== "" && <Text style={styles.error}>{error}</Text>}
+            {error !== "" && <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>}
 
             <Button
               title="Sign In"
@@ -100,9 +101,9 @@ export default function LoginScreen() {
               style={styles.linkWrapper}
               accessibilityRole="link"
             >
-              <Text style={styles.linkText}>
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
                 Don't have an account?{" "}
-                <Text style={styles.linkBold}>Sign up</Text>
+                <Text style={[styles.linkBold, { color: colors.primary }]}>Sign up</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -115,7 +116,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   flex: {
     flex: 1,
@@ -132,18 +132,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "700",
-    color: TEAL,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
   },
   form: {
     width: "100%",
   },
   error: {
-    color: "#DC2626",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 12,
@@ -159,10 +156,8 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: "#6B7280",
   },
   linkBold: {
-    color: TEAL,
     fontWeight: "600",
   },
 });

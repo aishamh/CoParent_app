@@ -3,8 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
+import { useTheme } from "../../src/theme/useTheme";
 
 interface MenuItem {
   label: string;
@@ -21,32 +20,34 @@ const MENU_ITEMS: MenuItem[] = [
   { label: "Settings", icon: "settings", route: "/(screens)/settings" },
 ];
 
-function MenuRow({ item }: { item: MenuItem }) {
-  const handlePress = () => {
-    router.push(item.route as never);
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      style={styles.row}
-      activeOpacity={0.6}
-      accessibilityRole="button"
-      accessibilityLabel={item.label}
-    >
-      <View style={styles.rowLeft}>
-        <Feather name={item.icon} size={20} color="#374151" />
-        <Text style={styles.rowLabel}>{item.label}</Text>
-      </View>
-      <Feather name="chevron-right" size={20} color="#9CA3AF" />
-    </TouchableOpacity>
-  );
-}
-
 export default function MoreScreen() {
+  const { colors } = useTheme();
+
+  function MenuRow({ item }: { item: MenuItem }) {
+    const handlePress = () => {
+      router.push(item.route as never);
+    };
+
+    return (
+      <TouchableOpacity
+        onPress={handlePress}
+        style={[styles.row, { borderBottomColor: colors.border }]}
+        activeOpacity={0.6}
+        accessibilityRole="button"
+        accessibilityLabel={item.label}
+      >
+        <View style={styles.rowLeft}>
+          <Feather name={item.icon} size={20} color={colors.foreground} />
+          <Text style={[styles.rowLabel, { color: colors.foreground }]}>{item.label}</Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Text style={styles.header}>More</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
+      <Text style={[styles.header, { color: colors.foreground }]}>More</Text>
       <View style={styles.list}>
         {MENU_ITEMS.map((item) => (
           <MenuRow key={item.route} item={item} />
@@ -59,12 +60,10 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   header: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 12,
@@ -78,7 +77,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     height: 56,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E7EB",
   },
   rowLeft: {
     flexDirection: "row",
@@ -88,6 +86,5 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#374151",
   },
 });

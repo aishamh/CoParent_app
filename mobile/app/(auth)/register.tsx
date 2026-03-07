@@ -10,13 +10,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 
 import { useAuth } from "../../src/auth/useAuth";
+import { useTheme } from "../../src/theme/useTheme";
 import Button from "../../src/components/ui/Button";
 import TextInput from "../../src/components/ui/TextInput";
 
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
 const ROLES = ["parent_a", "parent_b"] as const;
 const ROLE_LABELS: Record<string, string> = {
   parent_a: "Parent A",
@@ -25,6 +25,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
+  const { colors } = useTheme();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -47,6 +48,7 @@ export default function RegisterScreen() {
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     try {
       await signUp({
@@ -69,7 +71,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -79,8 +81,8 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.primary }]}>Create Account</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
               Join CoParent Connect to get started
             </Text>
           </View>
@@ -125,7 +127,7 @@ export default function RegisterScreen() {
               returnKeyType="done"
             />
 
-            <Text style={styles.roleLabel}>Your Role</Text>
+            <Text style={[styles.roleLabel, { color: colors.mutedForeground }]}>Your Role</Text>
             <View style={styles.roleRow}>
               {ROLES.map((r) => {
                 const isSelected = role === r;
@@ -135,7 +137,8 @@ export default function RegisterScreen() {
                     onPress={() => setRole(r)}
                     style={[
                       styles.roleOption,
-                      isSelected && styles.roleOptionSelected,
+                      { borderColor: colors.border },
+                      isSelected && { borderColor: colors.primary, backgroundColor: colors.accent },
                     ]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: isSelected }}
@@ -143,7 +146,8 @@ export default function RegisterScreen() {
                     <Text
                       style={[
                         styles.roleText,
-                        isSelected && styles.roleTextSelected,
+                        { color: colors.mutedForeground },
+                        isSelected && { color: colors.primary, fontWeight: "600" },
                       ]}
                     >
                       {ROLE_LABELS[r]}
@@ -153,7 +157,7 @@ export default function RegisterScreen() {
               })}
             </View>
 
-            {error !== "" && <Text style={styles.error}>{error}</Text>}
+            {error !== "" && <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>}
 
             <Button
               title="Create Account"
@@ -167,9 +171,9 @@ export default function RegisterScreen() {
               style={styles.linkWrapper}
               accessibilityRole="link"
             >
-              <Text style={styles.linkText}>
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
                 Already have an account?{" "}
-                <Text style={styles.linkBold}>Sign in</Text>
+                <Text style={[styles.linkBold, { color: colors.primary }]}>Sign in</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -182,7 +186,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   flex: {
     flex: 1,
@@ -200,12 +203,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: TEAL,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
   },
   form: {
     width: "100%",
@@ -213,7 +214,6 @@ const styles = StyleSheet.create({
   roleLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
     marginBottom: 6,
   },
   roleRow: {
@@ -225,26 +225,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 48,
     borderWidth: 1.5,
-    borderColor: "#D1D5DB",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  roleOptionSelected: {
-    borderColor: TEAL,
-    backgroundColor: "#F0FDFA",
-  },
   roleText: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#6B7280",
-  },
-  roleTextSelected: {
-    color: TEAL,
-    fontWeight: "600",
   },
   error: {
-    color: "#DC2626",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 12,
@@ -260,10 +249,8 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: "#6B7280",
   },
   linkBold: {
-    color: TEAL,
     fontWeight: "600",
   },
 });
