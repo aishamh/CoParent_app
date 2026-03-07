@@ -9,20 +9,21 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import Icon from "react-native-vector-icons/Feather";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 
-import { useTheme } from "../../src/theme/useTheme";
-import { useFamily, useJoinFamily } from "../../src/hooks/useFamily";
-import Button from "../../src/components/ui/Button";
-import TextInput from "../../src/components/ui/TextInput";
-import ProgressDots from "../../src/components/ui/ProgressDots";
-import type { ColorPalette } from "../../src/constants/colors";
+import { useTheme } from "../../theme/useTheme";
+import { useFamily, useJoinFamily } from "../../hooks/useFamily";
+import Button from "../../components/ui/Button";
+import TextInput from "../../components/ui/TextInput";
+import ProgressDots from "../../components/ui/ProgressDots";
+import type { ColorPalette } from "../../constants/colors";
 
 type Mode = "share" | "join";
 
 export default function InviteScreen() {
+  const navigation = useNavigation();
   const { colors } = useTheme();
   const { data: family, isLoading: isFamilyLoading } = useFamily();
   const joinFamilyMutation = useJoinFamily();
@@ -33,7 +34,7 @@ export default function InviteScreen() {
   const inviteCode = family?.invite_code ?? "";
 
   const handleShare = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ReactNativeHapticFeedback.trigger("impactLight");
     try {
       await Share.share({
         message: `Join our family on CoParent Connect! Use invite code: ${inviteCode}`,
@@ -50,16 +51,16 @@ export default function InviteScreen() {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    ReactNativeHapticFeedback.trigger("impactMedium");
     joinFamilyMutation.mutate(trimmed, {
       onSuccess: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        ReactNativeHapticFeedback.trigger("notificationSuccess");
         Alert.alert("Joined!", "You have joined the family successfully.", [
           { text: "Continue", onPress: navigateToHome },
         ]);
       },
       onError: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        ReactNativeHapticFeedback.trigger("notificationError");
         Alert.alert(
           "Invalid code",
           "That invite code was not recognized. Please check and try again.",
@@ -69,12 +70,17 @@ export default function InviteScreen() {
   };
 
   const navigateToHome = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.replace("/(tabs)");
+    ReactNativeHapticFeedback.trigger("impactLight");
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "Main" }],
+      }),
+    );
   };
 
   const toggleMode = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ReactNativeHapticFeedback.trigger("impactLight");
     setMode((prev) => (prev === "share" ? "join" : "share"));
   };
 
@@ -211,7 +217,7 @@ function ShareCodeSection({
         accessibilityRole="button"
         accessibilityLabel="Share invite code"
       >
-        <Feather name="share-2" size={20} color={colors.primary} />
+        <Icon name="share-2" size={20} color={colors.primary} />
         <Text style={[styles.shareText, { color: colors.primary }]}>
           Share Code
         </Text>

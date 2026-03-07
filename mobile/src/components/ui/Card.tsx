@@ -1,8 +1,8 @@
-import { Platform, StyleSheet, View, ViewStyle } from "react-native";
+import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export default function Card({ children, style }: CardProps) {

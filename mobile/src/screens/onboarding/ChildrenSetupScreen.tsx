@@ -10,22 +10,23 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
-import { Feather } from "@expo/vector-icons";
+import Icon from "react-native-vector-icons/Feather";
 
-import { createChild } from "../../src/api/children";
-import { useTheme } from "../../src/theme/useTheme";
-import Button from "../../src/components/ui/Button";
-import TextInput from "../../src/components/ui/TextInput";
-import ProgressDots from "../../src/components/ui/ProgressDots";
+import { createChild } from "../../api/children";
+import { useTheme } from "../../theme/useTheme";
+import Button from "../../components/ui/Button";
+import TextInput from "../../components/ui/TextInput";
+import ProgressDots from "../../components/ui/ProgressDots";
 
 interface LocalChild {
   name: string;
   age: number;
 }
 
-export default function ChildrenScreen() {
+export default function ChildrenSetupScreen() {
+  const navigation = useNavigation();
   const [children, setChildren] = useState<LocalChild[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [childName, setChildName] = useState("");
@@ -33,7 +34,8 @@ export default function ChildrenScreen() {
   const { colors } = useTheme();
 
   const mutation = useMutation({
-    mutationFn: (child: Parameters<typeof createChild>[0]) => createChild(child),
+    mutationFn: (child: Parameters<typeof createChild>[0]) =>
+      createChild(child),
   });
 
   const resetForm = () => {
@@ -75,14 +77,33 @@ export default function ChildrenScreen() {
         created_at: new Date().toISOString(),
       });
     }
-    router.push("/onboarding/invite");
+    navigation.navigate("Invite" as never);
   };
 
-  const renderChildRow = ({ item, index }: { item: LocalChild; index: number }) => (
-    <View style={[styles.childRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+  const skipToInvite = () => {
+    navigation.navigate("Invite" as never);
+  };
+
+  const renderChildRow = ({
+    item,
+    index,
+  }: {
+    item: LocalChild;
+    index: number;
+  }) => (
+    <View
+      style={[
+        styles.childRow,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <View style={styles.childInfo}>
-        <Text style={[styles.childName, { color: colors.foreground }]}>{item.name}</Text>
-        <Text style={[styles.childAge, { color: colors.mutedForeground }]}>Age {item.age}</Text>
+        <Text style={[styles.childName, { color: colors.foreground }]}>
+          {item.name}
+        </Text>
+        <Text style={[styles.childAge, { color: colors.mutedForeground }]}>
+          Age {item.age}
+        </Text>
       </View>
 
       <Pressable
@@ -91,13 +112,15 @@ export default function ChildrenScreen() {
         accessibilityRole="button"
         accessibilityLabel={`Remove ${item.name}`}
       >
-        <Feather name="x-circle" size={22} color={colors.destructive} />
+        <Icon name="x-circle" size={22} color={colors.destructive} />
       </Pressable>
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -105,7 +128,9 @@ export default function ChildrenScreen() {
         <View style={styles.container}>
           <ProgressDots total={4} current={2} />
 
-          <Text style={[styles.title, { color: colors.foreground }]}>Add Your Children</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            Add Your Children
+          </Text>
 
           <FlatList
             data={children}
@@ -113,14 +138,27 @@ export default function ChildrenScreen() {
             renderItem={renderChildRow}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
                 No children added yet. Tap the button below to get started.
               </Text>
             }
           />
 
           {showForm ? (
-            <View style={[styles.inlineForm, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.inlineForm,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <TextInput
                 label="Child's Name"
                 placeholder="Enter name"
@@ -152,7 +190,14 @@ export default function ChildrenScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Cancel adding child"
                 >
-                  <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+                  <Text
+                    style={[
+                      styles.cancelText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -169,12 +214,16 @@ export default function ChildrenScreen() {
             <Button title="Continue" onPress={navigateToInvite} />
 
             <Pressable
-              onPress={() => router.push("/onboarding/invite")}
+              onPress={skipToInvite}
               style={styles.skipWrapper}
               accessibilityRole="link"
               accessibilityLabel="Skip adding children"
             >
-              <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
+              <Text
+                style={[styles.skipText, { color: colors.mutedForeground }]}
+              >
+                Skip
+              </Text>
             </Pressable>
           </View>
         </View>

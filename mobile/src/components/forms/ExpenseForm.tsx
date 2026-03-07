@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as Haptics from "expo-haptics";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 
 import TextInput from "../ui/TextInput";
 import Button from "../ui/Button";
@@ -80,7 +80,7 @@ export default function ExpenseForm({ visible, onClose }: ExpenseFormProps) {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ReactNativeHapticFeedback.trigger("impactLight");
 
     const parsedSplit = parseInt(splitPercentage, 10);
     const safeSplit = isNaN(parsedSplit)

@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as Haptics from "expo-haptics";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 
 import TextInput from "../ui/TextInput";
 import Button from "../ui/Button";
@@ -47,7 +47,7 @@ export default function FriendForm({ visible, onClose }: FriendFormProps) {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ReactNativeHapticFeedback.trigger("impactLight");
 
     const friendData: Omit<Friend, "id"> = {
       name: name.trim(),

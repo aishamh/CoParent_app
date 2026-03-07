@@ -1,12 +1,23 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "allowJs": true,
+    "jsx": "react-native",
     "strict": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       "@shared/*": ["../shared/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "../shared/**/*.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "../shared/**/*.ts"],
+  "exclude": ["node_modules", "ios"]
 }

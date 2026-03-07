@@ -1,24 +1,33 @@
-import * as SecureStore from "expo-secure-store";
+import * as Keychain from "react-native-keychain";
 
-const TOKEN_KEY = "coparent_jwt_token";
+const SERVICE_NAME = "com.coparent.connect";
 
-// In-memory cache to avoid async reads on every API call
 let cachedToken: string | null = null;
 
 export async function getToken(): Promise<string | null> {
   if (cachedToken !== null) return cachedToken;
-  cachedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-  return cachedToken;
+
+  try {
+    const credentials = await Keychain.getGenericPassword({ service: SERVICE_NAME });
+    if (credentials) {
+      cachedToken = credentials.password;
+      return cachedToken;
+    }
+  } catch {
+    // Keychain read failure — treat as no token
+  }
+
+  return null;
 }
 
 export async function setToken(token: string): Promise<void> {
   cachedToken = token;
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await Keychain.setGenericPassword("jwt", token, { service: SERVICE_NAME });
 }
 
 export async function deleteToken(): Promise<void> {
   cachedToken = null;
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await Keychain.resetGenericPassword({ service: SERVICE_NAME });
 }
 
 export function getCachedToken(): string | null {

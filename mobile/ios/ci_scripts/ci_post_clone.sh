@@ -1,39 +1,26 @@
 #!/bin/sh
 
-# ============================================================
-# Xcode Cloud - Post Clone Script
-# ============================================================
-# Runs after Xcode Cloud clones the repo.
-# Installs Node.js, npm dependencies, and CocoaPods.
-# ============================================================
+# ci_post_clone.sh — Xcode Cloud post-clone script for bare React Native
+# Installs Node.js, npm dependencies, and CocoaPods before the build.
 
 set -e
 
-echo "=== CoParent Connect - Xcode Cloud Build ==="
-echo "Current directory: $(pwd)"
+echo "=== CoParent Connect: Xcode Cloud Post-Clone ==="
 
-# Navigate to the mobile directory
+# Install Node.js via Homebrew (Xcode Cloud images have Homebrew pre-installed)
+brew install node
+
+echo "Node version: $(node --version)"
+echo "npm version: $(npm --version)"
+
+# Navigate to the mobile project root (one level up from ios/)
 cd "$CI_PRIMARY_REPOSITORY_PATH/mobile"
-echo "Working directory: $(pwd)"
 
-# Install Node.js using Homebrew (Xcode Cloud has Homebrew pre-installed)
-echo "=== Installing Node.js ==="
-brew install node@22
-export PATH="/usr/local/opt/node@22/bin:$PATH"
-node --version
-npm --version
-
-# Install npm dependencies
 echo "=== Installing npm dependencies ==="
-npm ci || npm install
+npm ci
 
-# Run expo prebuild to ensure native project is up to date
-echo "=== Running Expo Prebuild ==="
-npx expo prebuild --platform ios --no-install
-
-# Navigate to iOS directory and install CocoaPods
-echo "=== Installing CocoaPods ==="
+echo "=== Installing CocoaPods dependencies ==="
 cd ios
 pod install
 
-echo "=== Post Clone Complete ==="
+echo "=== Post-clone complete ==="

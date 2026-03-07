@@ -1,34 +1,47 @@
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import Icon from "react-native-vector-icons/Feather";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 
-import { useTheme } from "../../src/theme/useTheme";
-import Button from "../../src/components/ui/Button";
-import ProgressDots from "../../src/components/ui/ProgressDots";
+import { useTheme } from "../../theme/useTheme";
+import Button from "../../components/ui/Button";
+import ProgressDots from "../../components/ui/ProgressDots";
 
 export default function WelcomeScreen() {
+  const navigation = useNavigation();
   const { colors } = useTheme();
 
   const navigateToProfile = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/onboarding/profile");
+    ReactNativeHapticFeedback.trigger("impactLight");
+    navigation.navigate("Profile" as never);
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+    >
       <View style={styles.container}>
         <ProgressDots total={4} current={0} />
 
         <View style={styles.content}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}>
-            <Feather name="heart" size={48} color={colors.primaryForeground} />
+          <View
+            style={[styles.iconCircle, { backgroundColor: colors.primary }]}
+          >
+            <Icon
+              name="heart"
+              size={48}
+              color={colors.primaryForeground}
+            />
           </View>
 
-          <Text style={[styles.title, { color: colors.foreground }]}>Welcome to CoParent Connect</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            Welcome to CoParent Connect
+          </Text>
 
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          <Text
+            style={[styles.subtitle, { color: colors.mutedForeground }]}
+          >
             The trusted platform for co-parenting coordination. Let's set up
             your family profile.
           </Text>

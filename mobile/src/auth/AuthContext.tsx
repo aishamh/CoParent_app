@@ -5,7 +5,6 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import { router } from "expo-router";
 import type { Profile } from "../types/schema";
 import { authGetMe, authLogin, authLogout, authRegister } from "../api/auth";
 import { getToken, setToken, deleteToken } from "./tokenStorage";
@@ -61,8 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const profile = await authGetMe();
       setUser(profile);
-
-      router.replace("/(tabs)");
+      // Navigation handled by RootNavigator reacting to user state change
     },
     [],
   );
@@ -73,21 +71,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const profile = await authGetMe();
     setUser(profile);
-
-    router.replace("/onboarding/welcome");
+    // Caller navigates to onboarding after signUp resolves
   }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
     try {
       await authLogout();
     } catch {
-      // Ignore logout errors - we clear local state regardless
+      // Ignore logout errors — clear local state regardless
     }
 
     await deleteToken();
     setUser(null);
-
-    router.replace("/(auth)/login");
+    // Navigation handled by RootNavigator reacting to user=null
   }, []);
 
   const value: AuthContextValue = {

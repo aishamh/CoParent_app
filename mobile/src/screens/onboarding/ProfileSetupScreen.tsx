@@ -9,14 +9,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import Icon from "react-native-vector-icons/Feather";
 
-import { useAuth } from "../../src/auth/useAuth";
-import { useTheme } from "../../src/theme/useTheme";
-import Button from "../../src/components/ui/Button";
-import TextInput from "../../src/components/ui/TextInput";
-import ProgressDots from "../../src/components/ui/ProgressDots";
+import { useAuth } from "../../auth/useAuth";
+import { useTheme } from "../../theme/useTheme";
+import Button from "../../components/ui/Button";
+import TextInput from "../../components/ui/TextInput";
+import ProgressDots from "../../components/ui/ProgressDots";
 
 function buildInitials(displayName: string | null | undefined): string {
   if (!displayName) return "";
@@ -27,7 +27,8 @@ function buildInitials(displayName: string | null | undefined): string {
     .join("");
 }
 
-export default function ProfileScreen() {
+export default function ProfileSetupScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { colors } = useTheme();
 
@@ -37,11 +38,13 @@ export default function ProfileScreen() {
   const hasInitials = initials.length > 0;
 
   const navigateToChildren = () => {
-    router.push("/onboarding/children");
+    navigation.navigate("Children" as never);
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -53,19 +56,32 @@ export default function ProfileScreen() {
           <ProgressDots total={4} current={1} />
 
           <View style={styles.content}>
-            <Text style={[styles.title, { color: colors.foreground }]}>Set Up Your Profile</Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              Set Up Your Profile
+            </Text>
 
             <View style={styles.avatarContainer}>
               <View
                 style={[
                   styles.avatar,
-                  { backgroundColor: colors.muted, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.muted,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 {hasInitials ? (
-                  <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
+                  <Text
+                    style={[styles.avatarText, { color: colors.primary }]}
+                  >
+                    {initials}
+                  </Text>
                 ) : (
-                  <Feather name="camera" size={32} color={colors.mutedForeground} />
+                  <Icon
+                    name="camera"
+                    size={32}
+                    color={colors.mutedForeground}
+                  />
                 )}
               </View>
             </View>
@@ -91,7 +107,11 @@ export default function ProfileScreen() {
               accessibilityRole="link"
               accessibilityLabel="Skip profile setup"
             >
-              <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
+              <Text
+                style={[styles.skipText, { color: colors.mutedForeground }]}
+              >
+                Skip
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
