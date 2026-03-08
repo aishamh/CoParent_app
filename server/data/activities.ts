@@ -113,7 +113,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Art", "History", "Garden", "Exhibitions"],
     website: "https://drfrm.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Mine_p%C3%A5_Drammen_museum.jpg/800px-Mine_p%C3%A5_Drammen_museum.jpg",
+      "https://drammens.museum.no/wp-content/uploads/2021/01/Marienlyst_4.jpg",
   },
   {
     id: "spiralen-drammen",
@@ -133,7 +133,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Free", "Viewpoint", "Playground", "Hiking"],
     website: "https://www.drammen.kommune.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Spiralen2.jpg/800px-Spiralen2.jpg",
+      "https://www.drammen.kommune.no/globalassets/aktuelt/bilder/2020/1.-kvartal/spiralen-vinter.jpg",
   },
   {
     id: "klatreverket-drammen",
@@ -192,7 +192,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.2030,
     tags: ["Free", "Park", "Playground", "Central"],
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Bragernes_Square.jpg/800px-Bragernes_Square.jpg",
+      "https://www.drammen.no/imageresizer/?image=%2Fdmsimgs%2FF1325D4E14E9D633587E86C50F13B3953BAC7D07.jpg&action=ProductDetailProElite",
   },
   {
     id: "union-scene-drammen",
@@ -212,7 +212,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Theater", "Concerts", "Kids Shows", "Art"],
     website: "https://unionscene.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Unionscene.jpg/800px-Unionscene.jpg",
+      "https://www.unionscene.no/wp-content/uploads/2024/04/IMG_0406-edited-scaled.jpg",
   },
   {
     id: "drammens-teater",
@@ -232,7 +232,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Theater", "Musicals", "Children's Shows", "Historic"],
     website: "https://drammensteater.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Drammens_teater_2018_%281%29.jpg/800px-Drammens_teater_2018_%281%29.jpg",
+      "https://www.drammenscener.no/wp-content/uploads/2025/03/IMG_9226-scaled.jpg",
   },
   {
     id: "lier-bygdetun",
@@ -251,7 +251,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.257911,
     tags: ["Open-Air", "History", "Nature", "Crafts"],
     imageUrl:
-      "https://images.unsplash.com/photo-1584907797015-7554cd315667?w=800&h=400&fit=crop",
+      "https://lier-bygdetun.no/uploads/gLkEwyz2/768x0_640x0/Stabburet-og-Heg-i-hstfarger-Foto-Svein-Raste.jpg",
   },
   {
     id: "drammen-aktivitetspark",
@@ -270,7 +270,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.208,
     tags: ["Free", "Climbing", "Skateboard", "Zip Line"],
     imageUrl:
-      "https://images.unsplash.com/photo-1596997000103-e597b3ca50df?w=800&h=400&fit=crop",
+      "https://images.squarespace-cdn.com/content/v1/5f3138761b5ab209909e5034/1601976510816-92ZG44P1GT2SAV0HBVBQ/Drammen+aktivitetspark+Drone+2.jpg",
   },
 ];
 
@@ -297,7 +297,7 @@ const ASKER_BAERUM_ACTIVITIES: PlaceActivity[] = [
     tags: ["Art", "Sculpture Park", "Family Workshops", "Fjord Views"],
     website: "https://hok.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Oslo_%E2%80%93_Henie_Onstad_Kunstsenter.jpg/800px-Oslo_%E2%80%93_Henie_Onstad_Kunstsenter.jpg",
+      "https://henie-onstad.imgix.net/Arkitektur-og-design/Hok_68_fotoleif-ørnelund@2x.jpg?auto=compress%2Cformat&crop=focalpoint&fit=crop&fp-x=0.5&fp-y=0.5&h=630&q=82&w=1200",
   },
   {
     id: "baerums-verk",
@@ -317,7 +317,7 @@ const ASKER_BAERUM_ACTIVITIES: PlaceActivity[] = [
     tags: ["Historic", "Shopping", "Craft Markets", "Restaurants"],
     website: "https://baerumsverk.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1555921015-5532091f6026?w=800&h=400&fit=crop",
+      "https://tellusdmsmedia.newmindmedia.com/wsimgs/49773659-CFC1-43C0-AD21-137E81347AF1_B_rums_Verk_1727924972.jpeg",
   },
 ];
 
@@ -344,7 +344,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Indoor", "Trampolines", "Birthday Parties"],
     website: "https://leoslekeland.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1566454825481-9c31bd88c36f?w=800&h=400&fit=crop",
+      "https://cms.leosplay.com/wp-content/uploads/2023/12/ballcanons.jpg",
   },
   {
     id: "tusenfryd",
@@ -364,7 +364,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Roller Coasters", "Water Park", "Seasonal"],
     website: "https://tusenfryd.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&h=400&fit=crop",
+      "https://www.tusenfryd.no/content/dam/tus/images/home/home-Attractions-fall2023.jpg.jpg",
   },
   {
     id: "oslo-kino",
@@ -384,7 +384,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Family Movies", "3D", "Candy Bar"],
     website: "https://oslokino.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=400&fit=crop",
+      "https://www.nfkino.no/sites/nfkino.no/files/media-images/2020-01/TinaRekdal_Colosseum-2.jpg",
   },
   {
     id: "teknisk-museum",
@@ -404,7 +404,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Science", "Interactive", "Maker Space"],
     website: "https://tekniskmuseum.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Norsk_Teknisk_Museum_TRS_070501_011.jpg/800px-Norsk_Teknisk_Museum_TRS_070501_011.jpg",
+      "https://www.tekniskmuseum.no/images/vitensenter/2024-sommer_GormGaare (49).jpg",
   },
   {
     id: "frognerparken",
@@ -423,7 +423,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.701,
     tags: ["Free", "Sculptures", "Playground"],
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Frognerparken.jpg/800px-Frognerparken.jpg",
+      "https://www.frognerparken.no/wp-content/uploads/2025/10/d6a051098f8400822021b7de82f9336b71e69e30.jpg",
   },
   {
     id: "barnas-kulturhus",
@@ -442,7 +442,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.761,
     tags: ["Theater", "Art Workshops", "Music"],
     imageUrl:
-      "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop",
+      "https://barnekunst.no/wp-content/uploads/2023/01/Anton.Antonov.Russia.web_.jpg",
   },
   {
     id: "holmenkollen",
@@ -462,7 +462,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Ski Jump", "Zipline", "Museum"],
     website: "https://holmenkollen.com",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/New_Holmenkollen_ski_jump.jpg/800px-New_Holmenkollen_ski_jump.jpg",
+      "https://holmenkollen.com/wp-content/uploads/2025/11/Thomas-Ekstrom_Skimuseet_MG_7249_WEB-1024x683.jpg",
   },
   {
     id: "sorenga-sjobad",
@@ -481,7 +481,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.752,
     tags: ["Outdoor Pool", "Diving", "Fjord Views"],
     imageUrl:
-      "https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&h=400&fit=crop",
+      "https://images.adsttc.com/media/images/58d4/e3bd/e58e/ce81/8b00/017b/large_jpg/S%C3%B8renga_Utvikling_2895.jpg?1490346933",
   },
   {
     id: "munch-museum",
@@ -501,7 +501,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Art", "Kids Workshops", "Architecture"],
     website: "https://munch.no",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/The_new_Munch_Museum_%28white_color_sign%29.jpg/800px-The_new_Munch_Museum_%28white_color_sign%29.jpg",
+      "https://www.munch.no/globalassets/foto-munch/eksterior/ik_munch_summer_2025_ext_0021.jpg",
   },
   {
     id: "oslo-vinterpark",
@@ -521,7 +521,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     tags: ["Skiing", "Kids Slopes", "Ski School"],
     website: "https://oslovinterpark.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800&h=400&fit=crop",
+      "https://www.skiresort.info/fileadmin/_processed_/28/8e/e5/5b/9a7a2ec976.jpg",
   },
   {
     id: "barnekunstmuseet",
@@ -540,7 +540,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.715,
     tags: ["Children's Art", "Workshops", "Global"],
     imageUrl:
-      "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800&h=400&fit=crop",
+      "https://barnekunst.no/wp-content/uploads/2023/01/barnekunst-ukraina-330x330px.jpg",
   },
   {
     id: "oslo-reptilpark",
@@ -559,7 +559,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.766,
     tags: ["Animals", "Interactive", "Educational"],
     imageUrl:
-      "https://images.unsplash.com/photo-1504450874802-0ba2bcd659e0?w=800&h=400&fit=crop",
+      "https://media.izi.travel/cd9b44b4-d2c6-4ee4-a3ea-9296c8916cff/109f60bd-8d50-401b-a2b1-f8fa2d503a6d_800x600.jpg",
   },
   {
     id: "oslo-klatrepark",
@@ -578,7 +578,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.73,
     tags: ["Climbing", "Zip Line", "Outdoor"],
     imageUrl:
-      "https://images.unsplash.com/photo-1545396924-6cfa1abd34b5?w=800&h=400&fit=crop",
+      "https://cdn.prod.website-files.com/6037cb15c9bb0d0fa66c51c3/6037cd3c907bb23fb89fe6c1_1920.jpg",
   },
   {
     id: "bogstad-swimming",
@@ -597,7 +597,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.649,
     tags: ["Lake", "Beach", "Canoe Rental"],
     imageUrl:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop",
+      "https://i1.vrs.gd/topcamp/uploads/dam/images-20/20250515041922/bogstad_oppleve_bogstadvannet.jpg",
   },
   {
     id: "deichman-toyen",
@@ -616,7 +616,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.771,
     tags: ["Free", "Library", "Workshops"],
     imageUrl:
-      "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=800&h=400&fit=crop",
+      "https://www.includi.com/wp-content/uploads/2024/02/BIBLO-1-1920x1800.jpg",
   },
   {
     id: "salt-art-music",
@@ -635,7 +635,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.748,
     tags: ["Art", "Music", "Waterfront"],
     imageUrl:
-      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop",
+      "https://images.squarespace-cdn.com/content/v1/5b30020796d45595ed164534/96c4217c-2c0a-4617-8219-58e0038cac71/Hero+bilde+SALT+Art%26Music.png",
   },
   {
     id: "oslo-filmfestival-kids",
@@ -654,7 +654,7 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.759,
     tags: ["Baby Cinema", "Kids Screenings", "Lounge"],
     imageUrl:
-      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop",
+      "https://www.nfkino.no/sites/nfkino.no/files/media-images/2019-11/TinaRekdal_Ringen-65.jpg",
   },
 ];
 
