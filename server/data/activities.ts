@@ -53,7 +53,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Indoor", "Trampolines", "Ball Pit", "Climbing"],
     website: "https://leoslekeland.no/drammen",
     imageUrl:
-      "https://images.unsplash.com/photo-1566454825481-9c31bd88c36f?w=800&h=400&fit=crop",
+      "https://cms.leosplay.com/wp-content/uploads/2023/12/playcenter-family.jpg",
   },
   {
     id: "rush-trampolinepark-drammen",
@@ -73,7 +73,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Indoor", "Trampolines", "Ninja Course", "Foam Pit"],
     website: "https://rushtrampoline.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1626248801379-51a0748a5f96?w=800&h=400&fit=crop",
+      "https://www.rushtrampolinepark.no/wp-content/uploads/2025/01/IMG_5498-1-768x512-1.webp",
   },
   {
     id: "kino-city-drammen",
@@ -93,7 +93,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Family Movies", "Kids Screenings", "3D"],
     website: "https://www.drammen-kino.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop",
+      "https://www.nfkino.no/sites/nfkino.no/files/media-images/2022-12/Drammen%201440x900_0.png",
   },
   {
     id: "drammens-museum",
@@ -153,7 +153,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Climbing", "Bouldering", "Kids Course", "Indoor"],
     website: "https://klatreverket.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1522163182402-834f871fd851?w=800&h=400&fit=crop",
+      "https://klatreverketdrammen.no/wp-content/uploads/2023/09/IMG_7346_R-1-1024x683.jpg",
   },
   {
     id: "drammenbadet",
@@ -173,7 +173,7 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     tags: ["Water Slides", "Wave Pool", "Kids Pool", "Diving"],
     website: "https://drammenbadet.no",
     imageUrl:
-      "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=800&h=400&fit=crop",
+      "https://cdn.sanity.io/images/jlrwvnbf/commercial/3d74c56080c14b1f6890f71f48a201a5f43684d4-1600x837.jpg",
   },
   {
     id: "bragernes-torg-park",
