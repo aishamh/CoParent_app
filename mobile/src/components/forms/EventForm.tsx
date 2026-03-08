@@ -161,6 +161,7 @@ export default function EventForm({
       recurrence_days: null,
       child_id: event?.child_id ?? null,
       family_id: event?.family_id ?? "",
+      schedule_id: event?.schedule_id ?? null,
       created_at: event?.created_at ?? "",
     };
 

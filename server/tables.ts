@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   avatar_url: text("avatar_url"),
   parent_a_name: text("parent_a_name"),
   parent_b_name: text("parent_b_name"),
+  venmo_username: text("venmo_username"),
+  paypal_email: text("paypal_email"),
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 });
 
@@ -66,6 +68,7 @@ export const events = pgTable("events", {
   address: text("address"),
   city: text("city"),
   postal_code: text("postal_code"),
+  schedule_id: text("schedule_id"),
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 });
 
@@ -164,8 +167,118 @@ export const messages = pgTable("messages", {
   read_at: text("read_at"),
   content_hash: text("content_hash").notNull(),
   sender_ip: text("sender_ip"),
+  tone_score: text("tone_score"),
+  tone_overridden: boolean("tone_overridden").notNull().default(false),
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 });
+
+// ============================================================
+// Phase 1: Push Notifications (Direct APNs)
+// ============================================================
+
+export const deviceTokens = pgTable("device_tokens", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  user_id: text("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  platform: text("platform").notNull().default("ios"),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  user_id: text("user_id").notNull().unique(),
+  messages_enabled: boolean("messages_enabled").notNull().default(true),
+  calendar_enabled: boolean("calendar_enabled").notNull().default(true),
+  expenses_enabled: boolean("expenses_enabled").notNull().default(true),
+  custody_reminders_enabled: boolean("custody_reminders_enabled").notNull().default(true),
+  tone_coaching_enabled: boolean("tone_coaching_enabled").notNull().default(true),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+  updated_at: text("updated_at").notNull().$defaultFn(nowIso),
+});
+
+// ============================================================
+// Phase 2: PDF Export Engine
+// ============================================================
+
+export const exportAuditLog = pgTable("export_audit_log", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  family_id: text("family_id").notNull(),
+  user_id: text("user_id").notNull(),
+  export_type: text("export_type").notNull(),
+  date_range_start: text("date_range_start"),
+  date_range_end: text("date_range_end"),
+  record_count: integer("record_count").notNull(),
+  document_hash: text("document_hash").notNull(),
+  file_path: text("file_path").notNull(),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+// ============================================================
+// Phase 3: Custody Schedule Templates
+// ============================================================
+
+export const custodySchedules = pgTable("custody_schedules", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  family_id: text("family_id").notNull(),
+  child_id: integer("child_id"),
+  template_type: text("template_type").notNull(),
+  start_date: text("start_date").notNull(),
+  parent_a_id: text("parent_a_id").notNull(),
+  parent_b_id: text("parent_b_id").notNull(),
+  custom_pattern: jsonb("custom_pattern").$type<number[]>(),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+export const custodySwapRequests = pgTable("custody_swap_requests", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  family_id: text("family_id").notNull(),
+  schedule_id: text("schedule_id").notNull(),
+  requested_by: text("requested_by").notNull(),
+  original_date: text("original_date").notNull(),
+  proposed_date: text("proposed_date").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  responded_at: text("responded_at"),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+// ============================================================
+// Phase 5: Attorney/Mediator Portals
+// ============================================================
+
+export const professionalInvites = pgTable("professional_invites", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  family_id: text("family_id").notNull(),
+  invite_code: text("invite_code").notNull().unique(),
+  role: text("role").notNull(),
+  invited_by: text("invited_by").notNull(),
+  email: text("email"),
+  expires_at: text("expires_at").notNull(),
+  accepted_by: text("accepted_by"),
+  revoked: boolean("revoked").notNull().default(false),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+export const professionalAccess = pgTable("professional_access", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  family_id: text("family_id").notNull(),
+  user_id: text("user_id").notNull(),
+  role: text("role").notNull(),
+  granted_by: text("granted_by").notNull(),
+  can_view_messages: boolean("can_view_messages").notNull().default(true),
+  can_view_calendar: boolean("can_view_calendar").notNull().default(true),
+  can_view_expenses: boolean("can_view_expenses").notNull().default(true),
+  can_view_documents: boolean("can_view_documents").notNull().default(true),
+  can_export: boolean("can_export").notNull().default(true),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+// ============================================================
+// Existing tables
+// ============================================================
 
 export const documents = pgTable("documents", {
   id: text("id").primaryKey().$defaultFn(generateId),

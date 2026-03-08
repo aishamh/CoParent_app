@@ -23,6 +23,12 @@ import {
 } from "../shared/schema";
 import { ALL_ACTIVITIES, type PlaceActivity } from "./data/activities";
 import { fetchOverpassActivities } from "./services/overpassApi";
+import { registerNotificationRoutes } from "./routes/notifications";
+import { registerExportRoutes } from "./routes/exports";
+import { registerCustodyRoutes } from "./routes/custody";
+import { registerToneRoutes } from "./routes/toneCheck";
+import { registerProfessionalRoutes } from "./routes/professionals";
+import { registerPaymentRoutes } from "./routes/payments";
 
 /** Parse page/limit query params into pagination values with safe defaults. */
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number; offset: number } {
@@ -331,23 +337,34 @@ export async function registerRoutes(
 
   app.post("/api/messages", requireAuth, async (req, res) => {
     try {
+      const senderId: string = (req as any).userId;
+      const senderFamilyId: string = (req as any).familyId;
+
       const validatedData = insertMessageSchema.parse({
         ...req.body,
-        sender_id: (req as any).userId,
+        sender_id: senderId,
       });
 
-      // Create content hash for integrity verification (court admissibility)
+      // Verify receiver belongs to the same family (prevent cross-family messaging)
+      const receiver = await storage.getUser(validatedData.receiver_id);
+      if (!receiver || receiver.family_id !== senderFamilyId) {
+        return res.status(403).json({ error: "Receiver is not in your family" });
+      }
+
+      // Use deterministic timestamp for reproducible court-admissible hash
+      const createdAt = new Date().toISOString();
       const content_hash = createHash("sha256")
-        .update(validatedData.content + (req as any).userId + Date.now())
+        .update(validatedData.content + senderId + createdAt)
         .digest("hex");
 
-      // Get sender IP for audit trail
       const sender_ip = req.ip || req.socket.remoteAddress;
 
       const message = await storage.createMessage({
         ...validatedData,
         content_hash,
         sender_ip: sender_ip || undefined,
+        family_id: senderFamilyId,
+        sender_id: senderId,
       });
 
       res.status(201).json(message);
@@ -1102,6 +1119,16 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch nearby places" });
     }
   });
+
+  // ---------------------------------------------------------------
+  // Register new feature route modules (Phases 1–6)
+  // ---------------------------------------------------------------
+  registerNotificationRoutes(app);
+  registerExportRoutes(app);
+  registerCustodyRoutes(app);
+  registerToneRoutes(app);
+  registerProfessionalRoutes(app);
+  registerPaymentRoutes(app);
 
   return httpServer;
 }

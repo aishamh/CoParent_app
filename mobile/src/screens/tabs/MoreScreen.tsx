@@ -19,10 +19,13 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  { label: "Custody Schedule", icon: "repeat", route: "CustodySchedule" },
   { label: "Parenting Plan", icon: "file-text", route: "ParentingPlan" },
   { label: "Exchange Tracking", icon: "map-pin", route: "ExchangeTracking" },
   { label: "Expenses", icon: "dollar-sign", route: "Expenses" },
   { label: "Documents", icon: "folder", route: "Documents" },
+  { label: "Export Records", icon: "download", route: "ExportHistory" },
+  { label: "Professional Access", icon: "briefcase", route: "ProfessionalAccess" },
   { label: "Education", icon: "book-open", route: "Education" },
   { label: "Social", icon: "users", route: "Social" },
   { label: "Settings", icon: "settings", route: "Settings" },

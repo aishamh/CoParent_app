@@ -556,8 +556,7 @@ export class DatabaseStorage implements IStorage {
     conditions.push(
       or(
         eq(documents.uploaded_by, userId),
-        // This is a simplified check - in production you'd use SQL array contains
-        eq(documents.uploaded_by, userId) // Placeholder - needs proper array contains check
+        sql`${documents.shared_with}::jsonb @> ${JSON.stringify([userId])}::jsonb`
       )
     );
 

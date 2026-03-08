@@ -28,6 +28,8 @@ export interface User {
   avatar_url: string | null;
   parent_a_name: string | null;
   parent_b_name: string | null;
+  venmo_username: string | null;
+  paypal_email: string | null;
   created_at: string;
 }
 
@@ -56,6 +58,8 @@ export interface Profile {
   avatar_url: string | null;
   parent_a_name: string | null;
   parent_b_name: string | null;
+  venmo_username: string | null;
+  paypal_email: string | null;
   created_at: string;
 }
 
@@ -100,6 +104,7 @@ export interface Event {
   address: string | null;
   city: string | null;
   postal_code: string | null;
+  schedule_id: string | null;
   created_at: string;
 }
 
@@ -299,6 +304,8 @@ export interface Message {
   read_at: string | null;
   content_hash: string;
   sender_ip: string | null;
+  tone_score: string | null;
+  tone_overridden: boolean;
   created_at: string;
 }
 
@@ -336,6 +343,227 @@ export const insertDocumentSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+
+// ============================================================
+// Phase 1: Push Notifications
+// ============================================================
+
+export interface DeviceToken {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const insertDeviceTokenSchema = z.object({
+  token: z.string().min(1, "Device token is required"),
+  platform: z.enum(["ios", "android"]).default("ios"),
+});
+export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
+
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  messages_enabled: boolean;
+  calendar_enabled: boolean;
+  expenses_enabled: boolean;
+  custody_reminders_enabled: boolean;
+  tone_coaching_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const updateNotificationPreferencesSchema = z.object({
+  messages_enabled: z.boolean().optional(),
+  calendar_enabled: z.boolean().optional(),
+  expenses_enabled: z.boolean().optional(),
+  custody_reminders_enabled: z.boolean().optional(),
+  tone_coaching_enabled: z.boolean().optional(),
+});
+export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;
+
+// ============================================================
+// Phase 2: PDF Export Engine
+// ============================================================
+
+export interface ExportAuditLog {
+  id: string;
+  family_id: string;
+  user_id: string;
+  export_type: string;
+  date_range_start: string | null;
+  date_range_end: string | null;
+  record_count: number;
+  document_hash: string;
+  file_path: string;
+  created_at: string;
+}
+
+export const createExportSchema = z.object({
+  export_type: z.enum(["messages", "expenses", "calendar"]),
+  date_range_start: z.string().min(1, "Start date is required"),
+  date_range_end: z.string().min(1, "End date is required"),
+});
+export type CreateExport = z.infer<typeof createExportSchema>;
+
+// ============================================================
+// Phase 3: Custody Schedule Templates
+// ============================================================
+
+export type CustodyTemplateType =
+  | "week_on_week_off"
+  | "2_2_3"
+  | "alternating_weekends"
+  | "alternating_weekends_midweek"
+  | "custom";
+
+export interface CustodySchedule {
+  id: string;
+  family_id: string;
+  child_id: number | null;
+  template_type: CustodyTemplateType;
+  start_date: string;
+  parent_a_id: string;
+  parent_b_id: string;
+  custom_pattern: number[] | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const insertCustodyScheduleSchema = z.object({
+  child_id: z.number().nullable().optional(),
+  template_type: z.enum([
+    "week_on_week_off",
+    "2_2_3",
+    "alternating_weekends",
+    "alternating_weekends_midweek",
+    "custom",
+  ]),
+  start_date: z.string().min(1, "Start date is required"),
+  parent_a_id: z.string().min(1),
+  parent_b_id: z.string().min(1),
+  custom_pattern: z.array(z.number()).nullable().optional(),
+});
+export type InsertCustodySchedule = z.infer<typeof insertCustodyScheduleSchema>;
+
+export type SwapRequestStatus = "pending" | "approved" | "declined";
+
+export interface CustodySwapRequest {
+  id: string;
+  family_id: string;
+  schedule_id: string;
+  requested_by: string;
+  original_date: string;
+  proposed_date: string;
+  reason: string | null;
+  status: SwapRequestStatus;
+  responded_at: string | null;
+  created_at: string;
+}
+
+export const insertSwapRequestSchema = z.object({
+  schedule_id: z.string().min(1),
+  original_date: z.string().min(1, "Original date is required"),
+  proposed_date: z.string().min(1, "Proposed date is required"),
+  reason: z.string().nullable().optional(),
+});
+export type InsertSwapRequest = z.infer<typeof insertSwapRequestSchema>;
+
+// ============================================================
+// Phase 4: Tone Detection
+// ============================================================
+
+export type ToneLabel =
+  | "neutral"
+  | "friendly"
+  | "formal"
+  | "hostile"
+  | "aggressive"
+  | "passive_aggressive";
+
+export interface ToneCheckResult {
+  tone: ToneLabel;
+  confidence: number;
+  flagged: boolean;
+  suggestion?: string;
+  explanation?: string;
+}
+
+export const toneCheckRequestSchema = z.object({
+  content: z.string().min(1, "Content is required"),
+});
+export type ToneCheckRequest = z.infer<typeof toneCheckRequestSchema>;
+
+// ============================================================
+// Phase 5: Attorney/Mediator Portals
+// ============================================================
+
+export type ProfessionalRole = "attorney" | "mediator";
+
+export interface ProfessionalInvite {
+  id: string;
+  family_id: string;
+  invite_code: string;
+  role: ProfessionalRole;
+  invited_by: string;
+  email: string | null;
+  expires_at: string;
+  accepted_by: string | null;
+  revoked: boolean;
+  created_at: string;
+}
+
+export const createProfessionalInviteSchema = z.object({
+  role: z.enum(["attorney", "mediator"]),
+  email: z.string().email().nullable().optional(),
+});
+export type CreateProfessionalInvite = z.infer<typeof createProfessionalInviteSchema>;
+
+export interface ProfessionalAccess {
+  id: string;
+  family_id: string;
+  user_id: string;
+  role: ProfessionalRole;
+  granted_by: string;
+  can_view_messages: boolean;
+  can_view_calendar: boolean;
+  can_view_expenses: boolean;
+  can_view_documents: boolean;
+  can_export: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const updateProfessionalAccessSchema = z.object({
+  can_view_messages: z.boolean().optional(),
+  can_view_calendar: z.boolean().optional(),
+  can_view_expenses: z.boolean().optional(),
+  can_view_documents: z.boolean().optional(),
+  can_export: z.boolean().optional(),
+  is_active: z.boolean().optional(),
+});
+export type UpdateProfessionalAccess = z.infer<typeof updateProfessionalAccessSchema>;
+
+// ============================================================
+// Phase 6: Payment Integration
+// ============================================================
+
+export const updatePaymentInfoSchema = z.object({
+  venmo_username: z.string().nullable().optional(),
+  paypal_email: z.string().email().nullable().optional(),
+});
+export type UpdatePaymentInfo = z.infer<typeof updatePaymentInfoSchema>;
+
+// ============================================================
+// Custody Day Assignment (used by schedule preview)
+// ============================================================
+
+export interface CustodyDay {
+  date: string;
+  parent: "A" | "B";
+}
 
 // --- Oslo Events (external API response) ---
 export interface OsloEvent {

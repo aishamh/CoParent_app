@@ -29,7 +29,9 @@ import {
 } from "../../hooks/useMessages";
 import { useFamilyMembers } from "../../hooks/useFamily";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
-import type { Message } from "../../types/schema";
+import { checkTone } from "../../api/toneCheck";
+import ToneWarning from "../../components/messaging/ToneWarning";
+import type { Message, ToneCheckResult } from "../../types/schema";
 import type { ColorPalette } from "../../constants/colors";
 
 // Enable LayoutAnimation on Android
@@ -671,6 +673,8 @@ export default function MessagesScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [showScrollFab, setShowScrollFab] = useState(false);
+  const [toneResult, setToneResult] = useState<ToneCheckResult | null>(null);
+  const [showToneWarning, setShowToneWarning] = useState(false);
 
   const flatListRef = useRef<FlatList<Message>>(null);
   const myId = user?.id ?? "me";
@@ -782,21 +786,35 @@ export default function MessagesScreen() {
     setSelectedConversationId(null);
   }, []);
 
-  const handleSendMessage = useCallback(() => {
-    const text = messageInput.trim();
-    if (!text || !selectedConversationId || !coParent) return;
-
+  const sendMessageDirectly = useCallback((text: string) => {
+    if (!coParent) return;
     sendMessageMutation.mutate({
       receiver_id: Number(coParent.id),
       content: text,
     });
     setMessageInput("");
-
-    // Scroll to bottom after sending
+    setShowToneWarning(false);
+    setToneResult(null);
     setTimeout(() => {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, 100);
-  }, [messageInput, selectedConversationId, coParent, sendMessageMutation]);
+  }, [coParent, sendMessageMutation]);
+
+  const handleSendMessage = useCallback(async () => {
+    const text = messageInput.trim();
+    if (!text || !selectedConversationId || !coParent) return;
+
+    // Check tone before sending (non-blocking — 3s timeout on server)
+    const result = await checkTone(text);
+    if (result && result.flagged) {
+      setToneResult(result);
+      setShowToneWarning(true);
+      ReactNativeHapticFeedback.trigger("notificationWarning");
+      return; // Don't send yet — show warning
+    }
+
+    sendMessageDirectly(text);
+  }, [messageInput, selectedConversationId, coParent, sendMessageDirectly]);
 
   const handleScrollToBottom = useCallback(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -1100,6 +1118,29 @@ export default function MessagesScreen() {
             colors={colors}
           />
         </View>
+      )}
+
+      {/* Tone Warning */}
+      {showToneWarning && toneResult && (
+        <ToneWarning
+          tone={toneResult.tone}
+          explanation={toneResult.explanation}
+          suggestion={toneResult.suggestion}
+          onUseSuggestion={() => {
+            if (toneResult.suggestion) {
+              setMessageInput(toneResult.suggestion);
+            }
+            setShowToneWarning(false);
+            setToneResult(null);
+          }}
+          onEdit={() => {
+            setShowToneWarning(false);
+            setToneResult(null);
+          }}
+          onSendAnyway={() => {
+            sendMessageDirectly(messageInput.trim());
+          }}
+        />
       )}
 
       {/* Composer */}

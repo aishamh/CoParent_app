@@ -28,6 +28,34 @@ export type {
   InsertExpense,
   InsertMessage,
   InsertDocument,
+  // Phase 1: Push Notifications
+  DeviceToken,
+  NotificationPreferences,
+  InsertDeviceToken,
+  UpdateNotificationPreferences,
+  // Phase 2: PDF Export Engine
+  ExportAuditLog,
+  CreateExport,
+  // Phase 3: Custody Schedule Templates
+  CustodySchedule,
+  CustodySwapRequest,
+  CustodyDay,
+  InsertCustodySchedule,
+  InsertSwapRequest,
+  CustodyTemplateType,
+  SwapRequestStatus,
+  // Phase 4: Tone Detection
+  ToneCheckResult,
+  ToneLabel,
+  ToneCheckRequest,
+  // Phase 5: Attorney/Mediator Portals
+  ProfessionalInvite,
+  ProfessionalAccess,
+  ProfessionalRole,
+  CreateProfessionalInvite,
+  UpdateProfessionalAccess,
+  // Phase 6: Payment Integration
+  UpdatePaymentInfo,
 } from "../../../shared/schema";
 
 export {

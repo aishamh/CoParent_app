@@ -20,6 +20,7 @@ import { useAuth } from "../auth/useAuth";
 import { useTheme } from "../theme/useTheme";
 import { fetchApi } from "../api/client";
 import { imageCache } from "../services/imageCache";
+import { updateNotificationPreferences } from "../api/notifications";
 import type { ThemeMode } from "../theme/ThemeContext";
 
 // ---------------------------------------------------------------------------
@@ -287,6 +288,17 @@ export default function SettingsScreen() {
       setNotifications((prev) => {
         const updated = { ...prev, [key]: !prev[key] };
         saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+        // Sync to server for keys that map to server-side preferences
+        const serverKeyMap: Record<string, string> = {
+          messageAlerts: "messages_enabled",
+          eventReminders: "calendar_enabled",
+          expenseAlerts: "expenses_enabled",
+        };
+        if (serverKeyMap[key]) {
+          updateNotificationPreferences({
+            [serverKeyMap[key]]: updated[key],
+          }).catch(() => {}); // Fire and forget — local state is source of truth for UX
+        }
         return updated;
       });
     },
@@ -895,6 +907,31 @@ export default function SettingsScreen() {
             value={notifications.documentShares}
             onValueChange={() => handleNotificationToggle("documentShares")}
           />
+        </SectionCard>
+
+        {/* ----------------------------------------------------------------
+            AI Features Section
+        ---------------------------------------------------------------- */}
+        <SectionHeader title="AI Features" />
+        <SectionCard>
+          <ToggleRow
+            icon="zap"
+            label="Communication Coaching"
+            value={notifications.pushNotifications}
+            onValueChange={() => {
+              updateNotificationPreferences({
+                tone_coaching_enabled: !notifications.pushNotifications,
+              }).catch(() => {});
+            }}
+          />
+          <Text
+            style={[
+              { fontSize: 12, paddingHorizontal: 16, paddingBottom: 12 },
+              { color: colors.mutedForeground },
+            ]}
+          >
+            Get tone analysis and rewrite suggestions before sending messages
+          </Text>
         </SectionCard>
 
         {/* ----------------------------------------------------------------

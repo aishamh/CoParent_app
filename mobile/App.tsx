@@ -36,6 +36,9 @@ import SocialScreen from "./src/screens/SocialScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import ParentingPlanScreen from "./src/screens/ParentingPlanScreen";
 import ExchangeTrackingScreen from "./src/screens/ExchangeTrackingScreen";
+import CustodyScheduleScreen from "./src/screens/CustodyScheduleScreen";
+import ExportHistoryScreen from "./src/screens/ExportHistoryScreen";
+import ProfessionalAccessScreen from "./src/screens/ProfessionalAccessScreen";
 
 import type {
   RootStackParamList,
@@ -178,6 +181,21 @@ function MainNavigator() {
         name="ExchangeTracking"
         component={ExchangeTrackingScreen}
         options={{ title: "Exchange Tracking" }}
+      />
+      <MainStack.Screen
+        name="CustodySchedule"
+        component={CustodyScheduleScreen}
+        options={{ title: "Custody Schedule" }}
+      />
+      <MainStack.Screen
+        name="ExportHistory"
+        component={ExportHistoryScreen}
+        options={{ title: "Export Records" }}
+      />
+      <MainStack.Screen
+        name="ProfessionalAccess"
+        component={ProfessionalAccessScreen}
+        options={{ title: "Professional Access" }}
       />
     </MainStack.Navigator>
   );

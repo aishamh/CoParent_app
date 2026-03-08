@@ -29,6 +29,9 @@ export type ScreensStackParamList = {
   Settings: undefined;
   ParentingPlan: undefined;
   ExchangeTracking: undefined;
+  CustodySchedule: undefined;
+  ExportHistory: undefined;
+  ProfessionalAccess: undefined;
 };
 
 export type RootStackParamList = {

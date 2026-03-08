@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -295,6 +297,34 @@ export default function ExpensesScreen() {
                 <Text style={[styles.actionButtonText, { color: "#991B1B" }]}>Reject</Text>
               </TouchableOpacity>
             </>
+          )}
+          {expense.status === "approved" && (
+            <TouchableOpacity
+              onPress={() => {
+                ActionSheetIOS.showActionSheetWithOptions(
+                  {
+                    options: ["Cancel", "Pay via Venmo", "Pay via PayPal", "Mark as Paid"],
+                    cancelButtonIndex: 0,
+                  },
+                  (buttonIndex) => {
+                    const owedAmount = (expense.amount * (100 - expense.split_percentage) / 100).toFixed(2);
+                    if (buttonIndex === 1) {
+                      Linking.openURL(`venmo://paycharge?txn=pay&amount=${owedAmount}&note=${encodeURIComponent(expense.title)}`);
+                    } else if (buttonIndex === 2) {
+                      Linking.openURL(`https://paypal.me/?amount=${owedAmount}&currency_code=USD`);
+                    } else if (buttonIndex === 3) {
+                      updateExpense.mutate({ id: expense.id, updates: { status: "reimbursed" } });
+                    }
+                  },
+                );
+              }}
+              style={[styles.actionButton, { backgroundColor: "#DBEAFE" }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Pay ${expense.title}`}
+            >
+              <Icon name="credit-card" size={16} color="#1E40AF" />
+              <Text style={[styles.actionButtonText, { color: "#1E40AF" }]}>Pay</Text>
+            </TouchableOpacity>
           )}
           <TouchableOpacity
             onPress={() => handleDelete(expense)}
