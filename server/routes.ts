@@ -21,6 +21,7 @@ import {
   insertMessageSchema,
   insertDocumentSchema
 } from "../shared/schema";
+import { ALL_ACTIVITIES, type PlaceActivity } from "./data/activities";
 
 /** Parse page/limit query params into pagination values with safe defaults. */
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number; offset: number } {
@@ -1004,5 +1005,80 @@ export async function registerRoutes(
     }
   });
 
+  // -------------------------------------------------------------------------
+  // Nearby places endpoint — public, no auth required
+  // -------------------------------------------------------------------------
+
+  app.get("/api/places/nearby", (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        return res.status(400).json({ error: "lat and lng query parameters are required and must be valid numbers" });
+      }
+
+      const radiusMeters = Math.min(
+        Math.max(1000, parseInt(req.query.radius as string) || 30000),
+        100000,
+      );
+      const radiusKm = radiusMeters / 1000;
+
+      const categoryFilter = req.query.category as string | undefined;
+
+      const activitiesWithDistance = ALL_ACTIVITIES
+        .filter((activity) => !categoryFilter || activity.category === categoryFilter)
+        .map((activity) => ({
+          ...activity,
+          distanceKm: haversineDistanceKm(lat, lng, activity.latitude, activity.longitude),
+        }))
+        .filter((activity) => activity.distanceKm <= radiusKm)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .map((activity) => ({
+          ...activity,
+          distanceKm: Math.round(activity.distanceKm * 10) / 10,
+        }));
+
+      res.json({
+        activities: activitiesWithDistance,
+        total: activitiesWithDistance.length,
+        center: { latitude: lat, longitude: lng },
+        radiusKm,
+      });
+    } catch (error) {
+      console.error("Error fetching nearby places:", error);
+      res.status(500).json({ error: "Failed to fetch nearby places" });
+    }
+  });
+
   return httpServer;
+}
+
+// ---------------------------------------------------------------------------
+// Haversine distance calculation (server-side)
+// ---------------------------------------------------------------------------
+
+const EARTH_RADIUS_KM = 6371;
+
+function degreesToRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
+
+/** Calculate great-circle distance between two coordinates in kilometres. */
+function haversineDistanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const dLat = degreesToRadians(lat2 - lat1);
+  const dLng = degreesToRadians(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(degreesToRadians(lat1)) *
+      Math.cos(degreesToRadians(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

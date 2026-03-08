@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
+  ActivityIndicator,
   FlatList,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +18,11 @@ import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import { useTheme } from "../../theme/useTheme";
 import { useCreateEvent } from "../../hooks/useEvents";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
+import { useNearbyLocation } from "../../hooks/useNearbyLocation";
+import type { UserCoordinates } from "../../hooks/useNearbyLocation";
+import { usePlacesSearch } from "../../hooks/usePlacesSearch";
+import type { NearbyActivity } from "../../hooks/usePlacesSearch";
+import { calculateDistanceKm, formatDistance } from "../../utils/distance";
 import Card from "../../components/ui/Card";
 import type { ColorPalette } from "../../constants/colors";
 
@@ -34,8 +41,12 @@ interface DiscoverActivity {
   ageRange: string;
   hours: string;
   address: string;
+  city?: string;
+  latitude: number;
+  longitude: number;
   tags: string[];
-  imageColor: string;
+  website?: string;
+  imageColor?: string;
 }
 
 interface Category {
@@ -62,6 +73,72 @@ const CATEGORIES: Category[] = [
 
 const PRICE_LABELS = ["Free", "$", "$$", "$$$", "$$$$"];
 
+// ---------------------------------------------------------------------------
+// Activity images — maps each venue ID to a representative photo URL.
+// Using Unsplash photos that match the venue type.
+// ---------------------------------------------------------------------------
+
+const ACTIVITY_IMAGES: Record<string, string> = {
+  "leo-lekeland":
+    "https://images.unsplash.com/photo-1596818727244-5e4c5a0a44ce?w=800&h=400&fit=crop",
+  "tusenfryd":
+    "https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&h=400&fit=crop",
+  "oslo-kino":
+    "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=400&fit=crop",
+  "teknisk-museum":
+    "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&h=400&fit=crop",
+  "frognerparken":
+    "https://images.unsplash.com/photo-1585938389612-a552a28d6914?w=800&h=400&fit=crop",
+  "barnas-kulturhus":
+    "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop",
+  "holmenkollen":
+    "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&h=400&fit=crop",
+  "sorenga-sjobad":
+    "https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&h=400&fit=crop",
+  "munch-museum":
+    "https://images.unsplash.com/photo-1554907984-15263bfd63bd?w=800&h=400&fit=crop",
+  "oslo-vinterpark":
+    "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800&h=400&fit=crop",
+  "barnekunstmuseet":
+    "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800&h=400&fit=crop",
+  "oslo-reptilpark":
+    "https://images.unsplash.com/photo-1504450874802-0ba2bcd659e0?w=800&h=400&fit=crop",
+  "oslo-klatrepark":
+    "https://images.unsplash.com/photo-1545396924-6cfa1abd34b5?w=800&h=400&fit=crop",
+  "bogstad-swimming":
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop",
+  "deichman-toyen":
+    "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=800&h=400&fit=crop",
+  "salt-art-music":
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop",
+  "oslo-filmfestival-kids":
+    "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop",
+};
+
+const CATEGORY_IMAGES: Record<string, string> = {
+  cinema:
+    "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=400&fit=crop",
+  amusement:
+    "https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&h=400&fit=crop",
+  play:
+    "https://images.unsplash.com/photo-1596818727244-5e4c5a0a44ce?w=800&h=400&fit=crop",
+  museum:
+    "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&h=400&fit=crop",
+  outdoor:
+    "https://images.unsplash.com/photo-1585938389612-a552a28d6914?w=800&h=400&fit=crop",
+  sports:
+    "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&h=400&fit=crop",
+  arts:
+    "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop",
+  swimming:
+    "https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&h=400&fit=crop",
+};
+
+/** Resolve the best image URL for an activity, falling back to its category. */
+function resolveActivityImage(activity: DiscoverActivity): string | undefined {
+  return ACTIVITY_IMAGES[activity.id] ?? CATEGORY_IMAGES[activity.category];
+}
+
 const OSLO_ACTIVITIES: DiscoverActivity[] = [
   {
     id: "leo-lekeland",
@@ -75,6 +152,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "1-12 years",
     hours: "Mon-Fri 10:00-18:00, Sat-Sun 10:00-19:00",
     address: "Snaroyveien 36, 1364 Fornebu",
+    latitude: 59.8950,
+    longitude: 10.6100,
     tags: ["Indoor", "Trampolines", "Birthday Parties"],
     imageColor: "#F59E0B",
   },
@@ -90,6 +169,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "All ages",
     hours: "May-Oct, 10:00-20:00 (varies)",
     address: "Vinterbrovegen 25, 1407 Vinterbro",
+    latitude: 59.7200,
+    longitude: 10.7800,
     tags: ["Roller Coasters", "Water Park", "Seasonal"],
     imageColor: "#EC4899",
   },
@@ -105,6 +186,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "3+ years",
     hours: "Daily 10:00-23:00",
     address: "Fridtjof Nansens vei 6, 0369 Oslo",
+    latitude: 59.9270,
+    longitude: 10.7220,
     tags: ["Family Movies", "3D", "Candy Bar"],
     imageColor: "#6366F1",
   },
@@ -120,6 +203,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "4+ years",
     hours: "Tue-Sun 10:00-18:00 (Wed until 20:00)",
     address: "Kjelsasveien 143, 0491 Oslo",
+    latitude: 59.9530,
+    longitude: 10.7790,
     tags: ["Science", "Interactive", "Maker Space"],
     imageColor: "#8B5CF6",
   },
@@ -135,6 +220,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "All ages",
     hours: "Open 24 hours, Playground 07:00-21:00",
     address: "Nobels gate 32, 0268 Oslo",
+    latitude: 59.9272,
+    longitude: 10.7010,
     tags: ["Free", "Sculptures", "Playground"],
     imageColor: "#22C55E",
   },
@@ -150,6 +237,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "2-10 years",
     hours: "Tue-Sun 10:00-16:00",
     address: "Schweigaards gate 14, 0185 Oslo",
+    latitude: 59.9110,
+    longitude: 10.7610,
     tags: ["Theater", "Art Workshops", "Music"],
     imageColor: "#F97316",
   },
@@ -165,6 +254,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "5+ years",
     hours: "Daily 10:00-17:00 (May-Sep until 20:00)",
     address: "Kongeveien 5, 0787 Oslo",
+    latitude: 59.9640,
+    longitude: 10.6670,
     tags: ["Ski Jump", "Zipline", "Museum"],
     imageColor: "#3B82F6",
   },
@@ -180,6 +271,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "All ages",
     hours: "Jun-Aug, 07:00-21:00",
     address: "Sorenga 1, 0194 Oslo",
+    latitude: 59.9040,
+    longitude: 10.7520,
     tags: ["Outdoor Pool", "Diving", "Fjord Views"],
     imageColor: "#06B6D4",
   },
@@ -195,6 +288,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "5+ years",
     hours: "Tue-Sun 10:00-18:00 (Thu-Sat until 21:00)",
     address: "Edvard Munchs plass 1, 0194 Oslo",
+    latitude: 59.9060,
+    longitude: 10.7540,
     tags: ["Art", "Kids Workshops", "Architecture"],
     imageColor: "#8B5CF6",
   },
@@ -210,6 +305,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "3+ years",
     hours: "Winter: Mon-Fri 10:00-21:00, Sat-Sun 09:30-17:00",
     address: "Tryvannsveien 64, 0791 Oslo",
+    latitude: 59.9830,
+    longitude: 10.6680,
     tags: ["Skiing", "Kids Slopes", "Ski School"],
     imageColor: "#3B82F6",
   },
@@ -225,6 +322,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "3-15 years",
     hours: "Tue-Sun 11:00-16:00",
     address: "Lille Frens vei 4, 0369 Oslo",
+    latitude: 59.9270,
+    longitude: 10.7150,
     tags: ["Children's Art", "Workshops", "Global"],
     imageColor: "#F97316",
   },
@@ -240,6 +339,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "3+ years",
     hours: "Daily 10:00-18:00",
     address: "St. Halvards gate 1, 0192 Oslo",
+    latitude: 59.9090,
+    longitude: 10.7660,
     tags: ["Animals", "Interactive", "Educational"],
     imageColor: "#8B5CF6",
   },
@@ -255,6 +356,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "5+ years",
     hours: "Apr-Oct, 10:00-18:00 (weekends until 19:00)",
     address: "Sognsvannsvn. 75, 0863 Oslo",
+    latitude: 59.9660,
+    longitude: 10.7300,
     tags: ["Climbing", "Zip Line", "Outdoor"],
     imageColor: "#22C55E",
   },
@@ -270,6 +373,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "All ages",
     hours: "Jun-Aug, 09:00-20:00",
     address: "Ankerveien 117, 0766 Oslo",
+    latitude: 59.9650,
+    longitude: 10.6490,
     tags: ["Lake", "Beach", "Canoe Rental"],
     imageColor: "#06B6D4",
   },
@@ -285,6 +390,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "0-15 years",
     hours: "Mon-Fri 08:00-19:00, Sat 10:00-16:00",
     address: "Hagegata 22, 0653 Oslo",
+    latitude: 59.9150,
+    longitude: 10.7710,
     tags: ["Free", "Library", "Workshops"],
     imageColor: "#F97316",
   },
@@ -300,6 +407,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "All ages",
     hours: "Daily 11:00-23:00 (seasonal)",
     address: "Langkaia 1, 0150 Oslo",
+    latitude: 59.9080,
+    longitude: 10.7480,
     tags: ["Art", "Music", "Waterfront"],
     imageColor: "#22C55E",
   },
@@ -315,6 +424,8 @@ const OSLO_ACTIVITIES: DiscoverActivity[] = [
     ageRange: "0+ years",
     hours: "Daily 10:00-22:00",
     address: "Thorvald Meyers gate 82, 0552 Oslo",
+    latitude: 59.9250,
+    longitude: 10.7590,
     tags: ["Baby Cinema", "Kids Screenings", "Lounge"],
     imageColor: "#6366F1",
   },
@@ -336,10 +447,18 @@ function HeroHeader({
   colors,
   searchQuery,
   onChangeSearch,
+  isNearMeActive,
+  isLocating,
+  onPressNearMe,
+  onClearNearMe,
 }: {
   colors: ColorPalette;
   searchQuery: string;
   onChangeSearch: (text: string) => void;
+  isNearMeActive: boolean;
+  isLocating: boolean;
+  onPressNearMe: () => void;
+  onClearNearMe: () => void;
 }) {
   return (
     <View style={[styles.heroContainer, { backgroundColor: colors.background }]}>
@@ -362,7 +481,7 @@ function HeroHeader({
             Discover Activities
           </Text>
           <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>
-            Family-friendly fun in Oslo
+            Family-friendly activities nearby
           </Text>
         </View>
       </View>
@@ -392,24 +511,85 @@ function HeroHeader({
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.nearMeButton, { backgroundColor: colors.primary }]}
-          onPress={() => {
-            ReactNativeHapticFeedback.trigger("impactLight");
-            Alert.alert("Near Me", "Location-based search coming soon.");
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Find activities near me"
-        >
-          <Icon name="navigation" size={16} color={colors.primaryForeground} />
-          <Text
-            style={[styles.nearMeText, { color: colors.primaryForeground }]}
-          >
-            Near Me
-          </Text>
-        </TouchableOpacity>
+        <NearMeButton
+          colors={colors}
+          isActive={isNearMeActive}
+          isLocating={isLocating}
+          onPress={onPressNearMe}
+          onClear={onClearNearMe}
+        />
       </View>
     </View>
+  );
+}
+
+function NearMeButton({
+  colors,
+  isActive,
+  isLocating,
+  onPress,
+  onClear,
+}: {
+  colors: ColorPalette;
+  isActive: boolean;
+  isLocating: boolean;
+  onPress: () => void;
+  onClear: () => void;
+}) {
+  if (isLocating) {
+    return (
+      <View
+        style={[styles.nearMeButton, { backgroundColor: colors.primary }]}
+        accessibilityLabel="Getting your location"
+      >
+        <ActivityIndicator size="small" color={colors.primaryForeground} />
+      </View>
+    );
+  }
+
+  if (isActive) {
+    return (
+      <TouchableOpacity
+        style={[
+          styles.nearMeButton,
+          {
+            backgroundColor: colors.primary + "18",
+            borderWidth: 1.5,
+            borderColor: colors.primary,
+          },
+        ]}
+        onPress={() => {
+          ReactNativeHapticFeedback.trigger("impactLight");
+          onClear();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Clear Near Me filter"
+      >
+        <Icon name="x" size={14} color={colors.primary} />
+        <Text style={[styles.nearMeText, { color: colors.primary }]}>
+          Near Me
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.nearMeButton, { backgroundColor: colors.primary }]}
+      onPress={() => {
+        ReactNativeHapticFeedback.trigger("impactLight");
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Find activities near me"
+    >
+      <Icon name="navigation" size={16} color={colors.primaryForeground} />
+      <Text
+        style={[styles.nearMeText, { color: colors.primaryForeground }]}
+      >
+        Near Me
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -526,10 +706,12 @@ function PriceLevelIndicator({
 function ActivityCard({
   activity,
   colors,
+  distanceKm,
   onAddToCalendar,
 }: {
   activity: DiscoverActivity;
   colors: ColorPalette;
+  distanceKm: number | null;
   onAddToCalendar: (activity: DiscoverActivity) => void;
 }) {
   const category = findCategoryByKey(activity.category);
@@ -546,40 +728,53 @@ function ActivityCard({
         borderRadius: 16,
       }}
     >
-      {/* Color header placeholder */}
-      <View
-        style={[
-          styles.cardImagePlaceholder,
-          { backgroundColor: categoryColor + "12" },
-        ]}
-      >
-        <View
-          style={[
-            styles.cardImageIconCircle,
-            { backgroundColor: categoryColor + "18" },
-          ]}
-        >
-          <Icon
-            name={category?.icon ?? "map-pin"}
-            size={28}
-            color={categoryColor}
+      {/* Activity image */}
+      <View style={styles.cardImageContainer}>
+        {resolveActivityImage(activity) ? (
+          <Image
+            source={{ uri: resolveActivityImage(activity) }}
+            style={styles.cardImage}
+            resizeMode="cover"
           />
-        </View>
-      </View>
+        ) : (
+          <View
+            style={[
+              styles.cardImageFallback,
+              { backgroundColor: categoryColor + "12" },
+            ]}
+          >
+            <Icon
+              name={category?.icon ?? "map-pin"}
+              size={28}
+              color={categoryColor}
+            />
+          </View>
+        )}
 
-      <View style={styles.cardBody}>
-        {/* Category badge */}
+        {/* Category overlay badge */}
         <View
           style={[
-            styles.categoryBadge,
-            { backgroundColor: categoryColor + "20" },
+            styles.imageOverlayBadge,
+            { backgroundColor: categoryColor + "E6" },
           ]}
         >
-          <Text style={[styles.categoryBadgeText, { color: categoryColor }]}>
+          <Icon name={category?.icon ?? "map-pin"} size={12} color="#FFFFFF" />
+          <Text style={styles.imageOverlayText}>
             {category?.label ?? activity.category}
           </Text>
         </View>
 
+        {distanceKm !== null && (
+          <View style={[styles.distanceBadge, { backgroundColor: colors.primary }]}>
+            <Icon name="navigation" size={11} color={colors.primaryForeground} />
+            <Text style={[styles.distanceBadgeText, { color: colors.primaryForeground }]}>
+              {formatDistance(distanceKm)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.cardBody}>
         {/* Activity name */}
         <Text
           style={[styles.activityName, { color: colors.foreground }]}
@@ -707,6 +902,102 @@ function EmptyState({ colors }: { colors: ColorPalette }) {
   );
 }
 
+function LoadingSkeleton({ colors }: { colors: ColorPalette }) {
+  return (
+    <View style={styles.skeletonContainer}>
+      {[1, 2, 3].map((key) => (
+        <View
+          key={key}
+          style={[styles.skeletonCard, { backgroundColor: colors.card }]}
+        >
+          <View
+            style={[
+              styles.skeletonImage,
+              { backgroundColor: colors.muted },
+            ]}
+          />
+          <View style={styles.skeletonBody}>
+            <View
+              style={[
+                styles.skeletonLine,
+                styles.skeletonLineWide,
+                { backgroundColor: colors.muted },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonLine,
+                styles.skeletonLineMedium,
+                { backgroundColor: colors.muted },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonLine,
+                styles.skeletonLineNarrow,
+                { backgroundColor: colors.muted },
+              ]}
+            />
+          </View>
+        </View>
+      ))}
+      <ActivityIndicator
+        size="small"
+        color={colors.primary}
+        style={styles.skeletonSpinner}
+      />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Conversion: NearbyActivity (API) -> DiscoverActivity (UI)
+// ---------------------------------------------------------------------------
+
+function toDiscoverActivity(nearby: NearbyActivity): DiscoverActivity {
+  return {
+    id: nearby.id,
+    name: nearby.name,
+    category: nearby.category,
+    rating: nearby.rating,
+    reviewCount: nearby.reviewCount,
+    description: nearby.description,
+    priceLevel: nearby.priceLevel,
+    ageRange: nearby.ageRange,
+    hours: nearby.hours,
+    address: nearby.address,
+    city: nearby.city,
+    latitude: nearby.latitude,
+    longitude: nearby.longitude,
+    tags: nearby.tags,
+    website: nearby.website,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for sorting by distance
+// ---------------------------------------------------------------------------
+
+interface ActivityWithDistance {
+  activity: DiscoverActivity;
+  distanceKm: number;
+}
+
+function computeDistances(
+  activities: DiscoverActivity[],
+  userLocation: UserCoordinates,
+): ActivityWithDistance[] {
+  return activities
+    .map((activity) => ({
+      activity,
+      distanceKm: calculateDistanceKm(userLocation, {
+        latitude: activity.latitude,
+        longitude: activity.longitude,
+      }),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -714,13 +1005,53 @@ function EmptyState({ colors }: { colors: ColorPalette }) {
 export default function DiscoverScreen() {
   const { colors } = useTheme();
   const createEvent = useCreateEvent();
+  const { userLocation, isLocating, requestLocation, clearLocation } =
+    useNearbyLocation();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useRefreshOnFocus(["events"]);
 
-  const filteredActivities = useMemo(() => {
+  const isNearMeActive = userLocation !== null;
+
+  // Fetch nearby places from the API when the user has a location
+  const {
+    data: nearbyData,
+    isLoading: isLoadingNearby,
+    isError: isNearbyError,
+  } = usePlacesSearch(
+    userLocation?.latitude ?? null,
+    userLocation?.longitude ?? null,
+  );
+
+  // Convert API results to DiscoverActivity for the UI
+  const apiActivities = useMemo<DiscoverActivity[]>(() => {
+    if (!nearbyData?.activities) return [];
+    return nearbyData.activities.map(toDiscoverActivity);
+  }, [nearbyData]);
+
+  // Distance lookup from API (distances already computed server-side)
+  const apiDistanceMap = useMemo(() => {
+    if (!nearbyData?.activities) return null;
+    const map = new Map<string, number>();
+    for (const item of nearbyData.activities) {
+      map.set(item.id, item.distanceKm);
+    }
+    return map;
+  }, [nearbyData]);
+
+  // Determine the city name from the nearest API result
+  const nearestCityName = useMemo(() => {
+    if (!nearbyData?.activities?.length) return null;
+    return nearbyData.activities[0].city;
+  }, [nearbyData]);
+
+  // Use API data when Near Me is active and API responded; fall back to static data
+  const useApiData = isNearMeActive && !isNearbyError && apiActivities.length > 0;
+
+  // Static fallback: filter the hardcoded Oslo activities
+  const filteredStaticActivities = useMemo(() => {
     return OSLO_ACTIVITIES.filter((activity) => {
       const matchesCategory =
         !selectedCategory || activity.category === selectedCategory;
@@ -735,6 +1066,49 @@ export default function DiscoverScreen() {
       return matchesCategory && matchesSearch;
     });
   }, [searchQuery, selectedCategory]);
+
+  // Apply search & category filters to API data
+  const filteredApiActivities = useMemo(() => {
+    return apiActivities.filter((activity) => {
+      const matchesCategory =
+        !selectedCategory || activity.category === selectedCategory;
+
+      const lowerQuery = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !lowerQuery ||
+        activity.name.toLowerCase().includes(lowerQuery) ||
+        activity.description.toLowerCase().includes(lowerQuery) ||
+        activity.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [apiActivities, searchQuery, selectedCategory]);
+
+  // Sort static activities by distance when Near Me active but API failed
+  const sortedStaticWithDistance = useMemo(() => {
+    if (!userLocation) return null;
+    return computeDistances(filteredStaticActivities, userLocation);
+  }, [filteredStaticActivities, userLocation]);
+
+  // Final display list
+  const displayActivities = useMemo(() => {
+    if (useApiData) return filteredApiActivities;
+    if (sortedStaticWithDistance) {
+      return sortedStaticWithDistance.map((item) => item.activity);
+    }
+    return filteredStaticActivities;
+  }, [useApiData, filteredApiActivities, filteredStaticActivities, sortedStaticWithDistance]);
+
+  // Distance map — API data has server-computed distances; static fallback uses client-side
+  const distanceByActivityId = useMemo(() => {
+    if (useApiData && apiDistanceMap) return apiDistanceMap;
+    if (!sortedStaticWithDistance) return null;
+    const map = new Map<string, number>();
+    for (const item of sortedStaticWithDistance) {
+      map.set(item.activity.id, item.distanceKm);
+    }
+    return map;
+  }, [useApiData, apiDistanceMap, sortedStaticWithDistance]);
 
   const handleAddToCalendar = useCallback(
     (activity: DiscoverActivity) => {
@@ -777,16 +1151,25 @@ export default function DiscoverScreen() {
       <ActivityCard
         activity={item}
         colors={colors}
+        distanceKm={distanceByActivityId?.get(item.id) ?? null}
         onAddToCalendar={handleAddToCalendar}
       />
     ),
-    [colors, handleAddToCalendar],
+    [colors, handleAddToCalendar, distanceByActivityId],
   );
 
   const keyExtractor = useCallback(
     (item: DiscoverActivity) => item.id,
     [],
   );
+
+  const sectionHeading = useMemo(() => {
+    if (!isNearMeActive) return "Featured Activities";
+    if (nearestCityName) return `Near You in ${nearestCityName}`;
+    return "Nearest Activities";
+  }, [isNearMeActive, nearestCityName]);
+
+  const showLoadingSkeleton = isNearMeActive && isLoadingNearby;
 
   const listHeader = useMemo(
     () => (
@@ -796,6 +1179,10 @@ export default function DiscoverScreen() {
           colors={colors}
           searchQuery={searchQuery}
           onChangeSearch={setSearchQuery}
+          isNearMeActive={isNearMeActive}
+          isLocating={isLocating}
+          onPressNearMe={requestLocation}
+          onClearNearMe={clearLocation}
         />
 
         {/* Category grid */}
@@ -810,26 +1197,41 @@ export default function DiscoverScreen() {
           />
         </View>
 
-        {/* Featured header */}
+        {/* Featured / Nearest header */}
         <View style={styles.featuredHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Featured Activities
+            {sectionHeading}
           </Text>
-          <Text
-            style={[styles.resultCount, { color: colors.mutedForeground }]}
-          >
-            {filteredActivities.length}{" "}
-            {filteredActivities.length === 1 ? "activity" : "activities"} found
-          </Text>
+          {!showLoadingSkeleton && (
+            <Text
+              style={[styles.resultCount, { color: colors.mutedForeground }]}
+            >
+              {displayActivities.length}{" "}
+              {displayActivities.length === 1 ? "activity" : "activities"} found
+            </Text>
+          )}
         </View>
+
+        {showLoadingSkeleton && <LoadingSkeleton colors={colors} />}
       </>
     ),
-    [colors, searchQuery, selectedCategory, filteredActivities.length],
+    [
+      colors,
+      searchQuery,
+      selectedCategory,
+      displayActivities.length,
+      isNearMeActive,
+      isLocating,
+      sectionHeading,
+      showLoadingSkeleton,
+      requestLocation,
+      clearLocation,
+    ],
   );
 
   const listEmpty = useMemo(
-    () => <EmptyState colors={colors} />,
-    [colors],
+    () => (showLoadingSkeleton ? null : <EmptyState colors={colors} />),
+    [colors, showLoadingSkeleton],
   );
 
   return (
@@ -838,7 +1240,7 @@ export default function DiscoverScreen() {
       edges={["top"]}
     >
       <FlatList
-        data={filteredActivities}
+        data={showLoadingSkeleton ? [] : displayActivities}
         renderItem={renderActivity}
         keyExtractor={keyExtractor}
         ListHeaderComponent={listHeader}
@@ -1006,32 +1408,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Activity cards
-  cardImagePlaceholder: {
-    height: 120,
+  // Activity cards — image
+  cardImageContainer: {
+    height: 160,
+    position: "relative",
+    overflow: "hidden" as const,
+  },
+  cardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  cardImageFallback: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
-  cardImageIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  imageOverlayBadge: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  imageOverlayText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  distanceBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  distanceBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   cardBody: {
     padding: 16,
-  },
-  categoryBadge: {
-    alignSelf: "flex-start",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 8,
-  },
-  categoryBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
   },
   activityName: {
     fontSize: 18,
@@ -1121,5 +1546,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
+  },
+
+  // Loading skeleton
+  skeletonContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  skeletonCard: {
+    borderRadius: 16,
+    overflow: "hidden" as const,
+    marginBottom: 20,
+  },
+  skeletonImage: {
+    height: 120,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  skeletonBody: {
+    padding: 16,
+    gap: 10,
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+  },
+  skeletonLineWide: {
+    width: "75%",
+  },
+  skeletonLineMedium: {
+    width: "55%",
+  },
+  skeletonLineNarrow: {
+    width: "40%",
+  },
+  skeletonSpinner: {
+    marginTop: 8,
+    marginBottom: 20,
   },
 });
