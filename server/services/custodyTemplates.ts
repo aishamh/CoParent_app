@@ -16,13 +16,13 @@ export interface CustodyEventBlock {
 }
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split("T")[0];
 }
 
 function getDayOfWeek(dateStr: string): number {
-  return new Date(dateStr).getDay();
+  return new Date(dateStr + "T12:00:00Z").getUTCDay();
 }
 
 // --- Template Generators ---

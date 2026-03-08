@@ -1,4 +1,4 @@
-import { fetchApi, type PaginatedResponse } from "./client";
+import { fetchApi } from "./client";
 import type { ProfessionalInvite, ProfessionalAccess } from "../types/schema";
 
 export async function createProfessionalInvite(
@@ -17,10 +17,7 @@ export async function createProfessionalInvite(
 
 export async function getProfessionalInvites(): Promise<ProfessionalInvite[]> {
   try {
-    const response = await fetchApi<PaginatedResponse<ProfessionalInvite>>(
-      "/api/professional-invites",
-    );
-    return response.data;
+    return await fetchApi<ProfessionalInvite[]>("/api/professional-invites");
   } catch {
     return [];
   }
@@ -57,10 +54,7 @@ export async function acceptProfessionalInvite(
 
 export async function getFamilyProfessionals(): Promise<ProfessionalAccess[]> {
   try {
-    const response = await fetchApi<PaginatedResponse<ProfessionalAccess>>(
-      "/api/family/professionals",
-    );
-    return response.data;
+    return await fetchApi<ProfessionalAccess[]>("/api/family/professionals");
   } catch {
     return [];
   }

@@ -1,4 +1,4 @@
-import { fetchApi, type PaginatedResponse } from "./client";
+import { fetchApi } from "./client";
 import type {
   CustodySchedule,
   CustodySwapRequest,
@@ -35,10 +35,7 @@ export async function createCustodySchedule(
 
 export async function getCustodySchedules(): Promise<CustodySchedule[]> {
   try {
-    const response = await fetchApi<PaginatedResponse<CustodySchedule>>(
-      "/api/custody-schedules",
-    );
-    return response.data;
+    return await fetchApi<CustodySchedule[]>("/api/custody-schedules");
   } catch {
     return [];
   }
@@ -70,10 +67,7 @@ export async function createSwapRequest(
 
 export async function getSwapRequests(): Promise<CustodySwapRequest[]> {
   try {
-    const response = await fetchApi<PaginatedResponse<CustodySwapRequest>>(
-      "/api/custody-swap-requests",
-    );
-    return response.data;
+    return await fetchApi<CustodySwapRequest[]>("/api/custody-swap-requests");
   } catch {
     return [];
   }

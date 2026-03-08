@@ -56,6 +56,10 @@ async function uploadToBlob(
   filename: string,
   buffer: Buffer,
 ): Promise<string> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.warn("[Exports] BLOB_READ_WRITE_TOKEN not set — returning data URI");
+    return `data:application/pdf;filename=${filename};base64,${buffer.toString("base64").slice(0, 100)}...`;
+  }
   const { url } = await put(`exports/${filename}`, buffer, {
     access: "public",
     contentType: "application/pdf",
