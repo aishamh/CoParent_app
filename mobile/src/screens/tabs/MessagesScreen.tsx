@@ -1,15 +1,17 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,58 +32,35 @@ import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { Message } from "../../types/schema";
 import type { ColorPalette } from "../../constants/colors";
 
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface TestMessage {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  subject: string | null;
-  content: string;
-  is_read: boolean;
-  read_at: string | null;
-  created_at: string;
-  content_hash: string;
-  isTest: true;
-}
-
-type AnyMessage = Message | TestMessage;
 
 interface Conversation {
   partnerId: string;
   partnerName: string;
   lastMessage: string;
   lastMessageAt: Date;
+  isLastMessageMine: boolean;
   unreadCount: number;
-  isTestConversation?: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const TEST_PARENT_B_ID = "test-parent-b";
 const MAX_CHAR_COUNT = 2000;
-
-const AUTO_RESPONSES = [
-  "Got it, thanks for letting me know.",
-  "That works for me. I'll adjust my schedule.",
-  "Can we discuss the pickup time?",
-  "I'll handle that this weekend.",
-  "Sounds good. I'll make sure everything is ready.",
-  "Thanks for the update! I appreciate you keeping me in the loop.",
-  "OK, I've noted that down. Let me know if anything changes.",
-  "I agree, that makes sense for the kids.",
-  "Let me check my calendar and get back to you.",
-  "Perfect. I'll take care of it on my end.",
-  "Could you send me the details when you get a chance?",
-  "I think that's a fair arrangement. Let's go with it.",
-  "Thanks! The kids will love that.",
-  "I'm available that day. Works for me.",
-  "Let's try to sort this out before the weekend.",
-];
+const CHAR_WARNING_RATIO = 0.8;
+const CHAR_DANGER_RATIO = 0.95;
+const SCROLL_FAB_THRESHOLD = 300;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,107 +96,21 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function pickAutoResponse(lastUsedIndex: number): { text: string; index: number } {
-  let idx = Math.floor(Math.random() * AUTO_RESPONSES.length);
-  while (idx === lastUsedIndex && AUTO_RESPONSES.length > 1) {
-    idx = Math.floor(Math.random() * AUTO_RESPONSES.length);
-  }
-  return { text: AUTO_RESPONSES[idx], index: idx };
+function charCountColor(length: number, colors: ColorPalette): string {
+  const ratio = length / MAX_CHAR_COUNT;
+  if (ratio >= CHAR_DANGER_RATIO) return colors.destructive;
+  if (ratio >= CHAR_WARNING_RATIO) return colors.amber;
+  return colors.mutedForeground;
+}
+
+function truncateHash(hash: string): string {
+  if (hash.length <= 16) return hash;
+  return `${hash.slice(0, 8)}\u2026${hash.slice(-8)}`;
 }
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-function TypingIndicator({ colors }: { colors: ColorPalette }) {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animateDot = (dot: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0.3,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-
-    const animation = Animated.parallel([
-      animateDot(dot1, 0),
-      animateDot(dot2, 150),
-      animateDot(dot3, 300),
-    ]);
-    animation.start();
-
-    return () => animation.stop();
-  }, [dot1, dot2, dot3]);
-
-  return (
-    <View style={typingStyles.container}>
-      <View style={[typingStyles.avatar, { backgroundColor: colors.border }]}>
-        <Text style={[typingStyles.avatarText, { color: colors.mutedForeground }]}>
-          ...
-        </Text>
-      </View>
-      <View style={[typingStyles.bubble, { backgroundColor: colors.muted }]}>
-        {[dot1, dot2, dot3].map((dot, i) => (
-          <Animated.View
-            key={i}
-            style={[
-              typingStyles.dot,
-              { backgroundColor: colors.mutedForeground, opacity: dot },
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const typingStyles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  bubble: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-});
 
 function DateDivider({ date, colors }: { date: Date; colors: ColorPalette }) {
   return (
@@ -239,120 +132,131 @@ const dividerStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
-  line: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
+  line: { flex: 1, height: StyleSheet.hairlineWidth },
+  label: { fontSize: 12, fontWeight: "500" },
 });
+
+// ---------------------------------------------------------------------------
 
 function MessageBubble({
   content,
+  subject,
   timestamp,
   isMine,
   isRead,
-  isTest,
+  isGroupEnd,
+  contentHash,
   colors,
 }: {
   content: string;
+  subject: string | null;
   timestamp: Date;
   isMine: boolean;
   isRead: boolean;
-  isTest?: boolean;
+  isGroupEnd: boolean;
+  contentHash: string;
   colors: ColorPalette;
 }) {
-  const bubbleBackground = isMine ? colors.primary : colors.muted;
+  const bubbleBg = isMine ? colors.primary : colors.muted;
   const textColor = isMine ? colors.primaryForeground : colors.foreground;
-  const metaColor = isMine ? "rgba(255,255,255,0.65)" : colors.mutedForeground;
+  const metaColor = isMine ? "rgba(255,255,255,0.6)" : colors.mutedForeground;
+
+  const showMessageDetails = () => {
+    ReactNativeHapticFeedback.trigger("impactMedium");
+    Alert.alert(
+      "Message Integrity",
+      [
+        `Sent: ${format(timestamp, "MMM d, yyyy 'at' h:mm:ss a")}`,
+        `SHA-256: ${contentHash}`,
+        "",
+        "This hash cryptographically verifies the message content has not been altered.",
+      ].join("\n"),
+      [{ text: "OK" }],
+    );
+  };
 
   return (
-    <View
+    <TouchableOpacity
+      onLongPress={showMessageDetails}
+      delayLongPress={400}
+      activeOpacity={0.85}
+      accessibilityLabel={`${isMine ? "You" : "Co-Parent"}: ${content}`}
+      accessibilityHint="Long press to view message integrity details"
       style={[
         bubbleStyles.container,
         isMine ? bubbleStyles.containerSent : bubbleStyles.containerReceived,
+        isGroupEnd ? bubbleStyles.groupEnd : bubbleStyles.groupMiddle,
       ]}
     >
       <View
         style={[
           bubbleStyles.bubble,
-          { backgroundColor: bubbleBackground },
-          isMine ? bubbleStyles.bubbleSent : bubbleStyles.bubbleReceived,
-          isTest && { borderWidth: 1, borderColor: colors.amber, borderStyle: "dashed" },
+          { backgroundColor: bubbleBg },
+          isMine
+            ? isGroupEnd
+              ? bubbleStyles.tailSent
+              : bubbleStyles.noTail
+            : isGroupEnd
+              ? bubbleStyles.tailReceived
+              : bubbleStyles.noTail,
         ]}
       >
-        <Text style={[bubbleStyles.text, { color: textColor }]}>{content}</Text>
-        <View
-          style={[
-            bubbleStyles.meta,
-            isMine ? bubbleStyles.metaSent : bubbleStyles.metaReceived,
-          ]}
-        >
-          <Text style={[bubbleStyles.time, { color: metaColor }]}>
-            {formatTimestamp(timestamp)}
+        {subject ? (
+          <Text
+            style={[bubbleStyles.subject, { color: textColor }]}
+            numberOfLines={1}
+          >
+            {subject}
           </Text>
-          {isMine && (
-            <Icon
-              name={isRead ? "check-circle" : "check"}
-              size={12}
-              color={metaColor}
-              style={bubbleStyles.readIcon}
-            />
-          )}
-        </View>
+        ) : null}
+
+        <Text style={[bubbleStyles.text, { color: textColor }]}>{content}</Text>
+
+        {isGroupEnd && (
+          <View
+            style={[
+              bubbleStyles.meta,
+              isMine ? bubbleStyles.metaSent : bubbleStyles.metaReceived,
+            ]}
+          >
+            <Text style={[bubbleStyles.time, { color: metaColor }]}>
+              {formatTimestamp(timestamp)}
+            </Text>
+            {isMine && (
+              <Icon
+                name={isRead ? "check-circle" : "check"}
+                size={12}
+                color={metaColor}
+                style={bubbleStyles.readIcon}
+              />
+            )}
+          </View>
+        )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const bubbleStyles = StyleSheet.create({
-  container: {
-    marginVertical: 2,
-    maxWidth: "78%",
-    paddingHorizontal: 16,
-  },
-  containerSent: {
-    alignSelf: "flex-end",
-  },
-  containerReceived: {
-    alignSelf: "flex-start",
-  },
-  bubble: {
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  bubbleSent: {
-    borderBottomRightRadius: 4,
-  },
-  bubbleReceived: {
-    borderBottomLeftRadius: 4,
-  },
-  text: {
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  meta: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 4,
-  },
-  metaSent: {
-    justifyContent: "flex-end",
-  },
-  metaReceived: {
-    justifyContent: "flex-start",
-  },
-  time: {
-    fontSize: 10,
-  },
-  readIcon: {
-    marginLeft: 2,
-  },
+  container: { maxWidth: "78%", paddingHorizontal: 16 },
+  containerSent: { alignSelf: "flex-end" },
+  containerReceived: { alignSelf: "flex-start" },
+  groupEnd: { marginBottom: 6, marginTop: 1 },
+  groupMiddle: { marginVertical: 1 },
+  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  tailSent: { borderBottomRightRadius: 4 },
+  tailReceived: { borderBottomLeftRadius: 4 },
+  noTail: { borderRadius: 18 },
+  subject: { fontSize: 13, fontWeight: "700", marginBottom: 2 },
+  text: { fontSize: 15, lineHeight: 21 },
+  meta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
+  metaSent: { justifyContent: "flex-end" },
+  metaReceived: { justifyContent: "flex-start" },
+  time: { fontSize: 10 },
+  readIcon: { marginLeft: 2 },
 });
+
+// ---------------------------------------------------------------------------
 
 function ConversationRow({
   conversation,
@@ -365,12 +269,9 @@ function ConversationRow({
   onPress: () => void;
   colors: ColorPalette;
 }) {
-  const avatarBg = conversation.isTestConversation
-    ? "rgba(245, 158, 11, 0.15)"
-    : colors.accent;
-  const avatarTextColor = conversation.isTestConversation
-    ? colors.amber
-    : colors.accentForeground;
+  const preview = conversation.isLastMessageMine
+    ? `You: ${conversation.lastMessage}`
+    : conversation.lastMessage;
 
   return (
     <TouchableOpacity
@@ -382,23 +283,22 @@ function ConversationRow({
         isSelected && { backgroundColor: colors.accent },
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`Conversation with ${conversation.partnerName}`}
+      accessibilityLabel={`Conversation with ${conversation.partnerName}, ${conversation.unreadCount} unread`}
     >
-      <View style={[rowStyles.avatar, { backgroundColor: avatarBg }]}>
-        <Text style={[rowStyles.avatarText, { color: avatarTextColor }]}>
+      <View style={[rowStyles.avatar, { backgroundColor: colors.primary }]}>
+        <Text style={[rowStyles.avatarText, { color: colors.primaryForeground }]}>
           {getInitials(conversation.partnerName)}
         </Text>
-        {conversation.isTestConversation && (
-          <View style={[rowStyles.testBadge, { backgroundColor: colors.amber }]}>
-            <Icon name="zap" size={8} color="#fff" />
-          </View>
-        )}
       </View>
 
       <View style={rowStyles.content}>
         <View style={rowStyles.topRow}>
           <Text
-            style={[rowStyles.name, { color: colors.foreground }]}
+            style={[
+              rowStyles.name,
+              { color: colors.foreground },
+              conversation.unreadCount > 0 && rowStyles.nameBold,
+            ]}
             numberOfLines={1}
           >
             {conversation.partnerName}
@@ -409,16 +309,25 @@ function ConversationRow({
         </View>
         <View style={rowStyles.bottomRow}>
           <Text
-            style={[rowStyles.preview, { color: colors.mutedForeground }]}
+            style={[
+              rowStyles.preview,
+              { color: colors.mutedForeground },
+              conversation.unreadCount > 0 && {
+                color: colors.foreground,
+                fontWeight: "500",
+              },
+            ]}
             numberOfLines={1}
           >
-            {conversation.lastMessage}
+            {preview}
           </Text>
           {conversation.unreadCount > 0 && (
             <View
-              style={[rowStyles.unreadDot, { backgroundColor: colors.primary }]}
+              style={[rowStyles.unreadBadge, { backgroundColor: colors.primary }]}
             >
-              <Text style={[rowStyles.unreadText, { color: colors.primaryForeground }]}>
+              <Text
+                style={[rowStyles.unreadText, { color: colors.primaryForeground }]}
+              >
                 {conversation.unreadCount}
               </Text>
             </View>
@@ -445,48 +354,20 @@ const rowStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  testBadge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    flex: 1,
-  },
+  avatarText: { fontSize: 16, fontWeight: "700" },
+  content: { flex: 1 },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 3,
   },
-  name: {
-    fontSize: 15,
-    fontWeight: "600",
-    flex: 1,
-    marginRight: 8,
-  },
-  time: {
-    fontSize: 12,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  preview: {
-    fontSize: 13,
-    flex: 1,
-  },
-  unreadDot: {
+  name: { fontSize: 15, fontWeight: "600", flex: 1, marginRight: 8 },
+  nameBold: { fontWeight: "700" },
+  time: { fontSize: 12 },
+  bottomRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  preview: { fontSize: 13, flex: 1 },
+  unreadBadge: {
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -494,19 +375,16 @@ const rowStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
-  unreadText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  unreadText: { fontSize: 11, fontWeight: "700" },
 });
+
+// ---------------------------------------------------------------------------
 
 function EmptyConversations({
   onCompose,
-  onEnableTestMode,
   colors,
 }: {
   onCompose: () => void;
-  onEnableTestMode: () => void;
   colors: ColorPalette;
 }) {
   return (
@@ -518,33 +396,24 @@ function EmptyConversations({
         Start a Conversation
       </Text>
       <Text style={[emptyStyles.subtitle, { color: colors.mutedForeground }]}>
-        Send secure, court-admissible messages to your co-parent. All messages are
-        encrypted, timestamped, and cannot be edited or deleted.
+        Send secure, court-admissible messages to your co-parent. Every message
+        is encrypted, timestamped, and permanently stored — they cannot be
+        edited or deleted.
       </Text>
-      <View style={emptyStyles.actions}>
-        <TouchableOpacity
-          onPress={onCompose}
-          style={[emptyStyles.primaryBtn, { backgroundColor: colors.primary }]}
-          accessibilityRole="button"
-          accessibilityLabel="New Message"
-        >
-          <Icon name="plus" size={16} color={colors.primaryForeground} />
-          <Text style={[emptyStyles.primaryBtnText, { color: colors.primaryForeground }]}>
-            New Message
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onEnableTestMode}
-          style={[emptyStyles.outlineBtn, { borderColor: colors.primary }]}
-          accessibilityRole="button"
-          accessibilityLabel="Try Test Mode"
-        >
-          <Icon name="zap" size={16} color={colors.primary} />
-          <Text style={[emptyStyles.outlineBtnText, { color: colors.primary }]}>
-            Try Test Mode
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        onPress={() => {
+          ReactNativeHapticFeedback.trigger("impactLight");
+          onCompose();
+        }}
+        style={[emptyStyles.btn, { backgroundColor: colors.primary }]}
+        accessibilityRole="button"
+        accessibilityLabel="New Message"
+      >
+        <Icon name="edit-3" size={16} color={colors.primaryForeground} />
+        <Text style={[emptyStyles.btnText, { color: colors.primaryForeground }]}>
+          New Message
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -564,65 +433,42 @@ const emptyStyles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
+  title: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
   subtitle: {
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 24,
   },
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  primaryBtn: {
+  btn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  primaryBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  outlineBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-  },
-  outlineBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  btnText: { fontSize: 15, fontWeight: "600" },
 });
+
+// ---------------------------------------------------------------------------
 
 function ComposerBar({
   value,
   onChangeText,
   onSend,
   isSending,
-  isTestMode,
   colors,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
   isSending: boolean;
-  isTestMode: boolean;
   colors: ColorPalette;
 }) {
   const inputRef = useRef<TextInput>(null);
   const canSend = value.trim().length > 0 && !isSending;
+  const countColor = charCountColor(value.length, colors);
 
   const handleSend = () => {
     if (!canSend) return;
@@ -645,7 +491,7 @@ function ComposerBar({
             composerStyles.input,
             { backgroundColor: colors.muted, color: colors.foreground },
           ]}
-          placeholder={isTestMode ? "Message (test)..." : "Type a secure message..."}
+          placeholder={"Type a secure message\u2026"}
           placeholderTextColor={colors.mutedForeground}
           value={value}
           onChangeText={onChangeText}
@@ -676,18 +522,19 @@ function ComposerBar({
           )}
         </TouchableOpacity>
       </View>
+
       <View style={composerStyles.footer}>
-        <Text style={[composerStyles.charCount, { color: colors.mutedForeground }]}>
+        <Text style={[composerStyles.charCount, { color: countColor }]}>
           {value.length}/{MAX_CHAR_COUNT}
         </Text>
-        {!isTestMode && (
-          <View style={composerStyles.noticeRow}>
-            <Icon name="shield" size={10} color={colors.mutedForeground} />
-            <Text style={[composerStyles.noticeText, { color: colors.mutedForeground }]}>
-              Permanently recorded. Cannot be edited or deleted.
-            </Text>
-          </View>
-        )}
+        <View style={composerStyles.noticeRow}>
+          <Icon name="lock" size={10} color={colors.mutedForeground} />
+          <Text
+            style={[composerStyles.noticeText, { color: colors.mutedForeground }]}
+          >
+            Permanently recorded. Cannot be edited or deleted.
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -699,11 +546,7 @@ const composerStyles = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   input: {
     flex: 1,
     minHeight: 40,
@@ -727,16 +570,81 @@ const composerStyles = StyleSheet.create({
     paddingHorizontal: 4,
     marginTop: 4,
   },
-  charCount: {
-    fontSize: 10,
-  },
-  noticeRow: {
-    flexDirection: "row",
+  charCount: { fontSize: 10, fontWeight: "500" },
+  noticeRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  noticeText: { fontSize: 10 },
+});
+
+// ---------------------------------------------------------------------------
+
+function ScrollToBottomButton({
+  visible,
+  onPress,
+  colors,
+}: {
+  visible: boolean;
+  onPress: () => void;
+  colors: ColorPalette;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: visible ? 1 : 0,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start();
+  }, [visible, anim]);
+
+  return (
+    <Animated.View
+      pointerEvents={visible ? "auto" : "none"}
+      style={[
+        fabStyles.wrapper,
+        {
+          opacity: anim,
+          transform: [
+            {
+              scale: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.6, 1],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={() => {
+          ReactNativeHapticFeedback.trigger("impactLight");
+          onPress();
+        }}
+        style={[
+          fabStyles.button,
+          { backgroundColor: colors.card, shadowColor: colors.foreground },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Scroll to latest messages"
+      >
+        <Icon name="chevrons-down" size={20} color={colors.primary} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const fabStyles = StyleSheet.create({
+  wrapper: { position: "absolute", bottom: 80, right: 16, zIndex: 10 },
+  button: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
-    gap: 4,
-  },
-  noticeText: {
-    fontSize: 10,
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });
 
@@ -749,32 +657,24 @@ export default function MessagesScreen() {
   const { colors } = useTheme();
   const { data: apiMessages = [], isLoading, refetch } = useMessages();
   const { data: familyMembers = [] } = useFamilyMembers();
+  const { data: totalUnread = 0 } = useUnreadCount();
   const sendMessageMutation = useSendMessage();
   const markReadMutation = useMarkAsRead();
 
   useRefreshOnFocus(["messages", "familyMembers"]);
 
-  // -- View state: "list" or "thread" --
+  // -- View state --
   const [viewMode, setViewMode] = useState<"list" | "thread">("list");
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // -- Test mode state --
-  const [testModeEnabled, setTestModeEnabled] = useState(false);
-  const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const lastAutoResponseIdxRef = useRef(-1);
-
-  // -- Input state --
   const [messageInput, setMessageInput] = useState("");
+  const [showScrollFab, setShowScrollFab] = useState(false);
 
-  // -- Refs --
-  const flatListRef = useRef<FlatList<AnyMessage>>(null);
-
+  const flatListRef = useRef<FlatList<Message>>(null);
   const myId = user?.id ?? "me";
   const coParent = familyMembers.find((member) => member.id !== user?.id);
-  const coParentName =
-    coParent?.display_name || coParent?.username || "Co-Parent";
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -806,29 +706,16 @@ export default function MessagesScreen() {
           partnerName,
           lastMessage: msg.content,
           lastMessageAt: msgDate,
+          isLastMessageMine: msg.sender_id === myId,
           unreadCount: unread,
         });
       }
     }
 
-    if (testModeEnabled) {
-      const lastTest =
-        testMessages.length > 0 ? testMessages[testMessages.length - 1] : null;
-
-      map.set(TEST_PARENT_B_ID, {
-        partnerId: TEST_PARENT_B_ID,
-        partnerName: coParentName,
-        lastMessage: lastTest?.content || "Start a test conversation...",
-        lastMessageAt: lastTest ? toDate(lastTest.created_at) : new Date(),
-        unreadCount: 0,
-        isTestConversation: true,
-      });
-    }
-
     return Array.from(map.values()).sort(
       (a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime(),
     );
-  }, [apiMessages, testMessages, testModeEnabled, myId, familyMembers, coParentName]);
+  }, [apiMessages, myId, familyMembers]);
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
@@ -840,12 +727,8 @@ export default function MessagesScreen() {
     );
   }, [conversations, searchQuery]);
 
-  const activeMessages = useMemo<AnyMessage[]>(() => {
+  const activeMessages = useMemo<Message[]>(() => {
     if (!selectedConversationId) return [];
-
-    if (selectedConversationId === TEST_PARENT_B_ID) {
-      return [...testMessages].reverse();
-    }
 
     return apiMessages
       .filter(
@@ -857,7 +740,7 @@ export default function MessagesScreen() {
         (a, b) =>
           toDate(b.created_at).getTime() - toDate(a.created_at).getTime(),
       );
-  }, [selectedConversationId, apiMessages, testMessages, myId]);
+  }, [selectedConversationId, apiMessages, myId]);
 
   const selectedConversation = conversations.find(
     (c) => c.partnerId === selectedConversationId,
@@ -868,8 +751,7 @@ export default function MessagesScreen() {
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!selectedConversationId || selectedConversationId === TEST_PARENT_B_ID)
-      return;
+    if (!selectedConversationId) return;
 
     const unread = apiMessages.filter(
       (m) =>
@@ -887,89 +769,73 @@ export default function MessagesScreen() {
   // ---------------------------------------------------------------------------
 
   const handleSelectConversation = useCallback((partnerId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedConversationId(partnerId);
     setViewMode("thread");
     setMessageInput("");
+    setShowScrollFab(false);
   }, []);
 
   const handleBackToList = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setViewMode("list");
     setSelectedConversationId(null);
   }, []);
 
-  const handleToggleTestMode = useCallback(
-    (enabled: boolean) => {
-      setTestModeEnabled(enabled);
-      if (enabled) {
-        setSelectedConversationId(TEST_PARENT_B_ID);
-        setViewMode("thread");
-      } else {
-        if (selectedConversationId === TEST_PARENT_B_ID) {
-          setSelectedConversationId(null);
-          setViewMode("list");
-        }
-        setTestMessages([]);
-        setIsTyping(false);
-      }
-    },
-    [selectedConversationId],
-  );
-
   const handleSendMessage = useCallback(() => {
     const text = messageInput.trim();
-    if (!text) return;
+    if (!text || !selectedConversationId || !coParent) return;
 
-    if (selectedConversationId === TEST_PARENT_B_ID) {
-      const now = new Date().toISOString();
-      const newMsg: TestMessage = {
-        id: `test-${Date.now()}`,
-        sender_id: myId,
-        receiver_id: TEST_PARENT_B_ID,
-        subject: null,
-        content: text,
-        is_read: true,
-        read_at: now,
-        created_at: now,
-        content_hash: "test-hash",
-        isTest: true,
-      };
-      setTestMessages((prev) => [...prev, newMsg]);
-      setMessageInput("");
+    sendMessageMutation.mutate({
+      receiver_id: Number(coParent.id),
+      content: text,
+    });
+    setMessageInput("");
 
-      const delay = 1000 + Math.random() * 1500;
-      setTimeout(() => {
-        setIsTyping(true);
-      }, delay);
+    // Scroll to bottom after sending
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, 100);
+  }, [messageInput, selectedConversationId, coParent, sendMessageMutation]);
 
-      setTimeout(() => {
-        setIsTyping(false);
-        const { text: responseText, index } = pickAutoResponse(
-          lastAutoResponseIdxRef.current,
-        );
-        lastAutoResponseIdxRef.current = index;
-        const responseNow = new Date().toISOString();
-        const responseMsg: TestMessage = {
-          id: `test-resp-${Date.now()}`,
-          sender_id: TEST_PARENT_B_ID,
-          receiver_id: myId,
-          subject: null,
-          content: responseText,
-          is_read: true,
-          read_at: responseNow,
-          created_at: responseNow,
-          content_hash: "test-hash",
-          isTest: true,
-        };
-        setTestMessages((prev) => [...prev, responseMsg]);
-      }, delay + 1000 + Math.random() * 1000);
-    } else if (selectedConversationId && coParent) {
-      sendMessageMutation.mutate({
-        receiver_id: Number(coParent.id),
-        content: text,
-      });
-      setMessageInput("");
-    }
-  }, [messageInput, selectedConversationId, myId, coParent, sendMessageMutation]);
+  const handleScrollToBottom = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  const handleScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      const offsetY = e.nativeEvent.contentOffset.y;
+      setShowScrollFab(offsetY > SCROLL_FAB_THRESHOLD);
+    },
+    [],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Render helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Determines grouping for a message at `index` in the inverted list.
+   *
+   * In an inverted FlatList, index 0 is the newest message (bottom of screen).
+   * - prevInArray (index - 1): the newer message, displayed BELOW
+   * - nextInArray (index + 1): the older message, displayed ABOVE
+   *
+   * `isGroupEnd`: no same-sender message below ⇒ show tail + timestamp.
+   */
+  const isGroupEnd = useCallback(
+    (index: number): boolean => {
+      if (index === 0) return true;
+      const current = activeMessages[index];
+      const newer = activeMessages[index - 1];
+      if (!newer) return true;
+      if (newer.sender_id !== current.sender_id) return true;
+      if (!isSameDay(toDate(current.created_at), toDate(newer.created_at)))
+        return true;
+      return false;
+    },
+    [activeMessages],
+  );
 
   // ---------------------------------------------------------------------------
   // Render: Conversation list
@@ -982,21 +848,37 @@ export default function MessagesScreen() {
         <View style={styles.listHeaderTop}>
           <View style={styles.listHeaderTitleRow}>
             <Icon name="shield" size={20} color={colors.primaryForeground} />
-            <Text style={[styles.listHeaderTitle, { color: colors.primaryForeground }]}>
+            <Text
+              style={[
+                styles.listHeaderTitle,
+                { color: colors.primaryForeground },
+              ]}
+            >
               Messages
             </Text>
+            {totalUnread > 0 && (
+              <View
+                style={[
+                  styles.headerBadge,
+                  { backgroundColor: colors.primaryForeground },
+                ]}
+              >
+                <Text style={[styles.headerBadgeText, { color: colors.primary }]}>
+                  {totalUnread}
+                </Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity
             onPress={() => {
-              if (coParent) {
-                handleSelectConversation(coParent.id);
-              }
+              ReactNativeHapticFeedback.trigger("impactLight");
+              if (coParent) handleSelectConversation(coParent.id);
             }}
             style={styles.composeBtn}
             accessibilityRole="button"
             accessibilityLabel="New message"
           >
-            <Icon name="plus" size={22} color={colors.primaryForeground} />
+            <Icon name="edit-3" size={18} color={colors.primaryForeground} />
           </TouchableOpacity>
         </View>
 
@@ -1005,7 +887,7 @@ export default function MessagesScreen() {
           <Icon name="search" size={15} color="rgba(255,255,255,0.5)" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search conversations..."
+            placeholder={"Search conversations\u2026"}
             placeholderTextColor="rgba(255,255,255,0.5)"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -1023,36 +905,6 @@ export default function MessagesScreen() {
         </View>
       </View>
 
-      {/* Test mode toggle */}
-      <View
-        style={[
-          styles.testModeRow,
-          { borderBottomColor: colors.border, backgroundColor: colors.muted },
-        ]}
-      >
-        <View style={styles.testModeLeft}>
-          <Icon name="zap" size={15} color={colors.amber} />
-          <Text style={[styles.testModeLabel, { color: colors.foreground }]}>
-            Test Mode
-          </Text>
-        </View>
-        <Switch
-          value={testModeEnabled}
-          onValueChange={handleToggleTestMode}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={colors.primaryForeground}
-          accessibilityLabel="Toggle test mode"
-        />
-      </View>
-
-      {testModeEnabled && (
-        <View style={[styles.testModeBanner, { backgroundColor: "rgba(245,158,11,0.08)" }]}>
-          <Text style={[styles.testModeBannerText, { color: colors.amber }]}>
-            Simulating conversation with {coParentName}
-          </Text>
-        </View>
-      )}
-
       {/* Conversation list */}
       {isLoading ? (
         <View style={styles.loaderContainer}>
@@ -1061,11 +913,8 @@ export default function MessagesScreen() {
       ) : filteredConversations.length === 0 ? (
         <EmptyConversations
           onCompose={() => {
-            if (coParent) {
-              handleSelectConversation(coParent.id);
-            }
+            if (coParent) handleSelectConversation(coParent.id);
           }}
-          onEnableTestMode={() => handleToggleTestMode(true)}
           colors={colors}
         />
       ) : (
@@ -1086,11 +935,11 @@ export default function MessagesScreen() {
       )}
 
       {/* Court-admissible notice */}
-      <View
-        style={[styles.courtNotice, { borderTopColor: colors.border }]}
-      >
+      <View style={[styles.courtNotice, { borderTopColor: colors.border }]}>
         <Icon name="lock" size={11} color={colors.mutedForeground} />
-        <Text style={[styles.courtNoticeText, { color: colors.mutedForeground }]}>
+        <Text
+          style={[styles.courtNoticeText, { color: colors.mutedForeground }]}
+        >
           End-to-end encrypted. Messages are immutable and court-admissible.
         </Text>
       </View>
@@ -1101,44 +950,41 @@ export default function MessagesScreen() {
   // Render: Thread view
   // ---------------------------------------------------------------------------
 
-  const isTestThread = selectedConversationId === TEST_PARENT_B_ID;
   const partnerName =
     selectedConversation?.partnerName || selectedConversationId || "";
 
   const renderThreadItem = useCallback(
-    ({ item, index }: { item: AnyMessage; index: number }) => {
+    ({ item, index }: { item: Message; index: number }) => {
       const msgDate = toDate(item.created_at);
       const isMine = item.sender_id === myId;
+      const groupEnd = isGroupEnd(index);
 
-      // For inverted FlatList the "next" item in the array is actually the
-      // message that appeared *before* this one chronologically.
-      const nextItemInArray =
+      // Date divider: show when this message is on a different day than the
+      // older message above it (next in array for inverted list).
+      const nextInArray =
         index < activeMessages.length - 1 ? activeMessages[index + 1] : null;
       const showDateDivider =
-        !nextItemInArray ||
-        !isSameDay(msgDate, toDate(nextItemInArray.created_at));
+        !nextInArray ||
+        !isSameDay(msgDate, toDate(nextInArray.created_at));
 
       return (
         <View>
           <MessageBubble
             content={item.content}
+            subject={item.subject}
             timestamp={msgDate}
             isMine={isMine}
             isRead={item.is_read}
-            isTest={"isTest" in item && (item as TestMessage).isTest}
+            isGroupEnd={groupEnd}
+            contentHash={item.content_hash}
             colors={colors}
           />
           {showDateDivider && <DateDivider date={msgDate} colors={colors} />}
         </View>
       );
     },
-    [activeMessages, myId, colors],
+    [activeMessages, myId, colors, isGroupEnd],
   );
-
-  const renderThreadHeader = useCallback(() => {
-    if (!isTyping) return null;
-    return <TypingIndicator colors={colors} />;
-  }, [isTyping, colors]);
 
   const renderThreadView = () => (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -1149,6 +995,7 @@ export default function MessagesScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Back to conversations"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Icon name="arrow-left" size={22} color={colors.primaryForeground} />
         </TouchableOpacity>
@@ -1156,21 +1003,13 @@ export default function MessagesScreen() {
         <View
           style={[
             styles.threadAvatar,
-            {
-              backgroundColor: isTestThread
-                ? "rgba(245,158,11,0.2)"
-                : "rgba(255,255,255,0.2)",
-            },
+            { backgroundColor: "rgba(255,255,255,0.2)" },
           ]}
         >
           <Text
             style={[
               styles.threadAvatarText,
-              {
-                color: isTestThread
-                  ? colors.amber
-                  : colors.primaryForeground,
-              },
+              { color: colors.primaryForeground },
             ]}
           >
             {getInitials(partnerName)}
@@ -1179,92 +1018,88 @@ export default function MessagesScreen() {
 
         <View style={styles.threadHeaderInfo}>
           <Text
-            style={[styles.threadHeaderName, { color: colors.primaryForeground }]}
+            style={[
+              styles.threadHeaderName,
+              { color: colors.primaryForeground },
+            ]}
             numberOfLines={1}
           >
             {partnerName}
           </Text>
           <View style={styles.threadHeaderSubRow}>
-            <Icon
-              name={isTestThread ? "zap" : "lock"}
-              size={11}
-              color="rgba(255,255,255,0.65)"
-            />
-            <Text style={styles.threadHeaderSub}>
-              {isTestThread ? "Test conversation" : "Secure channel"}
-            </Text>
+            <Icon name="lock" size={11} color="rgba(255,255,255,0.65)" />
+            <Text style={styles.threadHeaderSub}>Secure channel</Text>
           </View>
         </View>
-
-        {isTestThread && (
-          <View style={[styles.testBadgeHeader, { backgroundColor: colors.amber }]}>
-            <Text style={styles.testBadgeText}>Test</Text>
-          </View>
-        )}
       </View>
 
       {/* Court-admissible banner */}
-      {!isTestThread && (
-        <View
-          style={[
-            styles.admissibleBanner,
-            {
-              backgroundColor: "rgba(245,158,11,0.06)",
-              borderBottomColor: colors.border,
-            },
-          ]}
-        >
-          <Icon name="shield" size={13} color={colors.amber} />
-          <Text style={[styles.admissibleText, { color: colors.amber }]}>
-            Court-admissible: Messages are timestamped, hashed, and permanently stored.
-          </Text>
-        </View>
-      )}
-
-      {/* Test mode banner */}
-      {isTestThread && (
-        <View
-          style={[
-            styles.admissibleBanner,
-            {
-              backgroundColor: "rgba(245,158,11,0.06)",
-              borderBottomColor: colors.border,
-            },
-          ]}
-        >
-          <Icon name="zap" size={13} color={colors.amber} />
-          <Text style={[styles.admissibleText, { color: colors.amber }]}>
-            Test Mode Active -- Messages are local only. {coParentName} will
-            auto-respond.
-          </Text>
-        </View>
-      )}
+      <View
+        style={[
+          styles.admissibleBanner,
+          {
+            backgroundColor: "rgba(245,158,11,0.06)",
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <Icon name="shield" size={13} color={colors.amber} />
+        <Text style={[styles.admissibleText, { color: colors.amber }]}>
+          Court-admissible: Messages are timestamped, hashed, and permanently
+          stored.
+        </Text>
+      </View>
 
       {/* Messages */}
       {activeMessages.length === 0 && !isLoading ? (
         <View style={styles.emptyThread}>
-          <View style={[styles.emptyThreadIcon, { backgroundColor: colors.accent }]}>
+          <View
+            style={[
+              styles.emptyThreadIcon,
+              { backgroundColor: colors.accent },
+            ]}
+          >
             <Icon name="message-square" size={28} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyThreadText, { color: colors.mutedForeground }]}>
-            {isTestThread
-              ? `Send a message to start practicing with ${coParentName}.`
-              : "No messages yet. Send the first message to start the conversation."}
+          <Text
+            style={[
+              styles.emptyThreadTitle,
+              { color: colors.foreground },
+            ]}
+          >
+            Start the conversation
+          </Text>
+          <Text
+            style={[
+              styles.emptyThreadText,
+              { color: colors.mutedForeground },
+            ]}
+          >
+            Messages are encrypted and permanently stored. Long-press any
+            message to view its integrity hash.
           </Text>
         </View>
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={activeMessages}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderThreadItem}
-          ListHeaderComponent={renderThreadHeader}
-          inverted
-          contentContainerStyle={styles.threadList}
-          showsVerticalScrollIndicator={false}
-          refreshing={isLoading}
-          onRefresh={refetch}
-        />
+        <View style={styles.flex}>
+          <FlatList
+            ref={flatListRef}
+            data={activeMessages}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderThreadItem}
+            inverted
+            contentContainerStyle={styles.threadList}
+            showsVerticalScrollIndicator={false}
+            refreshing={isLoading}
+            onRefresh={refetch}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          />
+          <ScrollToBottomButton
+            visible={showScrollFab}
+            onPress={handleScrollToBottom}
+            colors={colors}
+          />
+        </View>
       )}
 
       {/* Composer */}
@@ -1273,7 +1108,6 @@ export default function MessagesScreen() {
         onChangeText={setMessageInput}
         onSend={handleSendMessage}
         isSending={sendMessageMutation.isPending}
-        isTestMode={isTestThread}
         colors={colors}
       />
     </View>
@@ -1304,12 +1138,8 @@ export default function MessagesScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
 
   // -- List header --
   listHeader: {
@@ -1328,10 +1158,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  listHeaderTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+  listHeaderTitle: { fontSize: 20, fontWeight: "700" },
+  headerBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    marginLeft: 4,
   },
+  headerBadgeText: { fontSize: 11, fontWeight: "700" },
   composeBtn: {
     width: 36,
     height: 36,
@@ -1358,36 +1195,8 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
-  // -- Test mode --
-  testModeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  testModeLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  testModeLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  testModeBanner: {
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-  },
-  testModeBannerText: {
-    fontSize: 12,
-  },
-
   // -- Conversation list --
-  conversationListContent: {
-    paddingBottom: 8,
-  },
+  conversationListContent: { paddingBottom: 8 },
 
   // -- Court notice --
   courtNotice: {
@@ -1399,9 +1208,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  courtNoticeText: {
-    fontSize: 10,
-  },
+  courtNoticeText: { fontSize: 10 },
 
   // -- Thread header --
   threadHeader: {
@@ -1425,37 +1232,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  threadAvatarText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  threadHeaderInfo: {
-    flex: 1,
-  },
-  threadHeaderName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  threadAvatarText: { fontSize: 14, fontWeight: "700" },
+  threadHeaderInfo: { flex: 1 },
+  threadHeaderName: { fontSize: 16, fontWeight: "600" },
   threadHeaderSubRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginTop: 1,
   },
-  threadHeaderSub: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.65)",
-  },
-  testBadgeHeader: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  testBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#ffffff",
-  },
+  threadHeaderSub: { fontSize: 11, color: "rgba(255,255,255,0.65)" },
 
   // -- Admissible banner --
   admissibleBanner: {
@@ -1466,16 +1252,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  admissibleText: {
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 16,
-  },
+  admissibleText: { fontSize: 12, flex: 1, lineHeight: 16 },
 
   // -- Thread messages --
-  threadList: {
-    paddingVertical: 8,
-  },
+  threadList: { paddingVertical: 8 },
   emptyThread: {
     flex: 1,
     justifyContent: "center",
@@ -1489,6 +1269,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
+  },
+  emptyThreadTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    marginBottom: 6,
   },
   emptyThreadText: {
     fontSize: 14,

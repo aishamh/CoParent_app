@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import type { Profile } from "../types/schema";
 import { authGetMe, authLogin, authLogout, authRegister } from "../api/auth";
+import { setOnUnauthorized } from "../api/client";
 import { getToken, setToken, deleteToken } from "./tokenStorage";
 
 interface SignUpData {
@@ -37,6 +38,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     restoreSession();
+  }, []);
+
+  // Clear user state when any API call returns 401 (session expired)
+  useEffect(() => {
+    setOnUnauthorized(() => setUser(null));
+    return () => setOnUnauthorized(null);
   }, []);
 
   async function restoreSession(): Promise<void> {

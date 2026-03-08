@@ -22,6 +22,7 @@ import {
   insertDocumentSchema
 } from "../shared/schema";
 import { ALL_ACTIVITIES, type PlaceActivity } from "./data/activities";
+import { fetchOverpassActivities } from "./services/overpassApi";
 
 /** Parse page/limit query params into pagination values with safe defaults. */
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number; offset: number } {
@@ -1009,7 +1010,7 @@ export async function registerRoutes(
   // Nearby places endpoint — public, no auth required
   // -------------------------------------------------------------------------
 
-  app.get("/api/places/nearby", (req, res) => {
+  app.get("/api/places/nearby", async (req, res) => {
     try {
       const lat = parseFloat(req.query.lat as string);
       const lng = parseFloat(req.query.lng as string);
@@ -1026,22 +1027,73 @@ export async function registerRoutes(
 
       const categoryFilter = req.query.category as string | undefined;
 
-      const activitiesWithDistance = ALL_ACTIVITIES
-        .filter((activity) => !categoryFilter || activity.category === categoryFilter)
-        .map((activity) => ({
-          ...activity,
-          distanceKm: haversineDistanceKm(lat, lng, activity.latitude, activity.longitude),
+      // ---------------------------------------------------------------
+      // Tier 1: Curated Norwegian venues (always checked first)
+      // ---------------------------------------------------------------
+
+      const curatedResults = ALL_ACTIVITIES
+        .filter((a) => !categoryFilter || a.category === categoryFilter)
+        .map((a) => ({
+          ...a,
+          distanceKm: Math.round(haversineDistanceKm(lat, lng, a.latitude, a.longitude) * 10) / 10,
+          source: "curated" as const,
         }))
-        .filter((activity) => activity.distanceKm <= radiusKm)
-        .sort((a, b) => a.distanceKm - b.distanceKm)
-        .map((activity) => ({
-          ...activity,
-          distanceKm: Math.round(activity.distanceKm * 10) / 10,
-        }));
+        .filter((a) => a.distanceKm <= radiusKm)
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+
+      // ---------------------------------------------------------------
+      // Tier 2: OpenStreetMap worldwide venues via Overpass API
+      // ---------------------------------------------------------------
+
+      let osmResults: Array<PlaceActivity & { distanceKm: number; source: "openstreetmap" }> = [];
+
+      try {
+        const overpassActivities = await fetchOverpassActivities(
+          lat,
+          lng,
+          radiusMeters,
+          categoryFilter,
+        );
+
+        osmResults = overpassActivities
+          .map((a) => ({
+            ...a,
+            distanceKm: Math.round(haversineDistanceKm(lat, lng, a.latitude, a.longitude) * 10) / 10,
+            source: "openstreetmap" as const,
+          }))
+          .filter((a) => a.distanceKm <= radiusKm);
+      } catch (error) {
+        console.warn("Overpass API failed, serving curated results only:", error);
+      }
+
+      // ---------------------------------------------------------------
+      // Deduplicate: skip OSM venues within 200 m of a curated venue
+      // ---------------------------------------------------------------
+
+      const DEDUP_THRESHOLD_KM = 0.2;
+
+      const dedupedOsm = osmResults.filter((osm) => {
+        return !curatedResults.some(
+          (curated) =>
+            haversineDistanceKm(
+              osm.latitude,
+              osm.longitude,
+              curated.latitude,
+              curated.longitude,
+            ) < DEDUP_THRESHOLD_KM,
+        );
+      });
+
+      // ---------------------------------------------------------------
+      // Merge: curated first, then OSM — sorted by distance
+      // ---------------------------------------------------------------
+
+      const merged = [...curatedResults, ...dedupedOsm]
+        .sort((a, b) => a.distanceKm - b.distanceKm);
 
       res.json({
-        activities: activitiesWithDistance,
-        total: activitiesWithDistance.length,
+        activities: merged,
+        total: merged.length,
         center: { latitude: lat, longitude: lng },
         radiusKm,
       });

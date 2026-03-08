@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Feather";
@@ -123,36 +123,41 @@ export default function MoreScreen() {
     >
       <Text style={[styles.header, { color: colors.foreground }]}>More</Text>
 
-      <View style={styles.list}>
-        {MENU_ITEMS.map((item) => (
-          <MenuRow
-            key={item.route}
-            item={item}
-            colors={colors}
-            onPress={() => handleNavigate(item.route)}
-          />
-        ))}
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.list}>
+          {MENU_ITEMS.map((item) => (
+            <MenuRow
+              key={item.route}
+              item={item}
+              colors={colors}
+              onPress={() => handleNavigate(item.route)}
+            />
+          ))}
+        </View>
 
-      {/* Handover info card */}
-      <View style={styles.handoverSection}>
-        <HandoverCard colors={colors} />
-      </View>
+        {/* Handover info card */}
+        <View style={styles.handoverSection}>
+          <HandoverCard colors={colors} />
+        </View>
 
-      {/* Logout button */}
-      <View style={styles.logoutSection}>
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={[styles.logoutButton, { borderColor: colors.destructive }]}
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-        >
-          <Icon name="log-out" size={18} color={colors.destructive} />
-          <Text style={[styles.logoutText, { color: colors.destructive }]}>
-            Sign Out
-          </Text>
-        </TouchableOpacity>
-      </View>
+        {/* Logout button */}
+        <View style={styles.logoutSection}>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={[styles.logoutButton, { borderColor: colors.destructive }]}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
+            <Icon name="log-out" size={18} color={colors.destructive} />
+            <Text style={[styles.logoutText, { color: colors.destructive }]}>
+              Sign Out
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -164,6 +169,9 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   header: {
     fontSize: 28,

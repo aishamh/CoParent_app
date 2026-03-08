@@ -19,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../auth/useAuth";
 import { useTheme } from "../theme/useTheme";
 import { fetchApi } from "../api/client";
+import { imageCache } from "../services/imageCache";
 import type { ThemeMode } from "../theme/ThemeContext";
 
 // ---------------------------------------------------------------------------
@@ -232,6 +233,11 @@ export default function SettingsScreen() {
   // Export state
   const [exporting, setExporting] = useState(false);
 
+  // Image cache state
+  const [cacheSize, setCacheSize] = useState<number>(0);
+  const [cachedCount, setCachedCount] = useState<number>(0);
+  const [clearingCache, setClearingCache] = useState(false);
+
   // -------------------------------------------------------------------------
   // Load persisted data on mount
   // -------------------------------------------------------------------------
@@ -239,6 +245,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadPersistedPreferences();
     loadParentNamesFromApi();
+    refreshCacheInfo();
   }, []);
 
   async function loadPersistedPreferences(): Promise<void> {
@@ -443,6 +450,44 @@ export default function SettingsScreen() {
       Alert.alert("Error", "Failed to export data. Please try again.");
     } finally {
       setExporting(false);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Image cache management
+  // -------------------------------------------------------------------------
+
+  async function refreshCacheInfo(): Promise<void> {
+    const [size, count] = await Promise.all([
+      imageCache.getCacheSize(),
+      imageCache.getCachedCount(),
+    ]);
+    setCacheSize(size);
+    setCachedCount(count);
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const exponent = Math.min(
+      Math.floor(Math.log(bytes) / Math.log(1024)),
+      units.length - 1,
+    );
+    const value = bytes / Math.pow(1024, exponent);
+    return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+  }
+
+  async function handleClearImageCache(): Promise<void> {
+    triggerHaptic();
+    setClearingCache(true);
+    try {
+      await imageCache.clearCache();
+      await refreshCacheInfo();
+      Alert.alert("Cache Cleared", "All cached images have been removed.");
+    } catch {
+      Alert.alert("Error", "Failed to clear image cache.");
+    } finally {
+      setClearingCache(false);
     }
   }
 
@@ -971,6 +1016,49 @@ export default function SettingsScreen() {
               size={18}
               color={colors.mutedForeground}
             />
+          </TouchableOpacity>
+        </SectionCard>
+
+        {/* ----------------------------------------------------------------
+            Storage
+        ---------------------------------------------------------------- */}
+        <SectionHeader title="Storage" />
+        <SectionCard>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Icon name="image" size={20} color={colors.foreground} />
+              <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                Cached Images
+              </Text>
+            </View>
+            <Text
+              style={[styles.versionText, { color: colors.mutedForeground }]}
+            >
+              {cachedCount} images ({formatBytes(cacheSize)})
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.rowDivider,
+              { backgroundColor: colors.border },
+            ]}
+          />
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleClearImageCache}
+            disabled={clearingCache || cachedCount === 0}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Clear image cache"
+          >
+            <View style={styles.rowLeft}>
+              <Icon name="trash-2" size={20} color={colors.destructive} />
+              <Text
+                style={[styles.rowLabel, { color: colors.destructive }]}
+              >
+                {clearingCache ? "Clearing..." : "Clear Image Cache"}
+              </Text>
+            </View>
           </TouchableOpacity>
         </SectionCard>
 

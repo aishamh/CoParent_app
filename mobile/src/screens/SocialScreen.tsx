@@ -221,6 +221,7 @@ export default function SocialScreen() {
     isRefetching: eventsRefetching,
     refetch: refetchEvents,
   } = useSocialEvents();
+  const updateEvent = useUpdateSocialEvent();
 
   useRefreshOnFocus(["friends"]);
   useRefreshOnFocus(["socialEvents"]);
@@ -298,7 +299,6 @@ export default function SocialScreen() {
     const eventDate = new Date(event.date);
     const month = eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
     const day = String(eventDate.getDate());
-    const updateEvent = useUpdateSocialEvent();
 
     return (
       <Card style={[styles.upcomingEventCard, { backgroundColor: colors.card }]}>
@@ -381,7 +381,6 @@ export default function SocialScreen() {
     const pendingEvents = socialEvents.filter(
       (e) => !e.rsvp_status || e.rsvp_status === "pending",
     );
-    const updateEvent = useUpdateSocialEvent();
 
     if (pendingEvents.length === 0) return null;
 
@@ -529,8 +528,6 @@ export default function SocialScreen() {
   }
 
   function SocialEventCard({ event }: { event: SocialEvent }) {
-    const updateEvent = useUpdateSocialEvent();
-
     const handleRsvp = (status: "accepted" | "declined") => {
       updateEvent.mutate({
         id: event.id,

@@ -29,7 +29,6 @@ export type ScreensStackParamList = {
   Settings: undefined;
   ParentingPlan: undefined;
   ExchangeTracking: undefined;
-  AddEvent: { initialDate?: string } | undefined;
 };
 
 export type RootStackParamList = {

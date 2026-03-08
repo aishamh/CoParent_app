@@ -52,7 +52,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your microphone</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to record your location during child custody exchanges for documentation purposes.</string>
+	<string>Allow $(PRODUCT_NAME) to use your location to find nearby family activities and record child custody exchanges for documentation purposes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your photos</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

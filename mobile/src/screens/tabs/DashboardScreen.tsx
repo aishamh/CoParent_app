@@ -62,7 +62,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "Add Event", icon: "calendar", route: "AddEvent" },
+  { label: "Add Event", icon: "calendar", route: "Calendar" },
   { label: "Send Message", icon: "message-circle", route: "Messages" },
   { label: "Add Expense", icon: "dollar-sign", route: "Expenses" },
   { label: "View Documents", icon: "folder", route: "Documents" },
@@ -293,7 +293,7 @@ function ActivitySuggestionCard({
         {activity.title}
       </Text>
       <Text style={[styles.activityMeta, { color: colors.mutedForeground }]}>
-        {activity.ageRange} &middot; {activity.duration}
+        {activity.ageRange} · {activity.duration}
       </Text>
       <TouchableOpacity
         onPress={() => onAddToPlan(activity)}
@@ -323,7 +323,7 @@ function AutoPlanWidget({
         </Text>
       </View>
       <Text style={[styles.autoPlanHeading, { color: colors.foreground }]}>
-        Auto-Plan 2027
+        Auto-Plan {new Date().getFullYear() + 1}
       </Text>
       <Text style={[styles.autoPlanDescription, { color: colors.mutedForeground }]}>
         Let AI generate a balanced custody and activity schedule for the entire year.
@@ -502,7 +502,7 @@ export default function DashboardScreen() {
         {/* Today's Schedule */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Today&apos;s Schedule
+            {"Today's Schedule"}
           </Text>
           {eventsLoading ? (
             <Card>
@@ -520,7 +520,7 @@ export default function DashboardScreen() {
                   No events today
                 </Text>
                 <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
-                  Tap &quot;Add Event&quot; below to schedule something
+                  Tap "Add Event" below to schedule something
                 </Text>
               </View>
             </Card>
@@ -606,7 +606,7 @@ export default function DashboardScreen() {
         {/* Quick Add row */}
         <QuickAddRow
           colors={colors}
-          onAddEvent={() => navigateTo("AddEvent")}
+          onAddEvent={() => navigateTo("Calendar")}
           onSendMessage={() => navigateTo("Messages")}
           onNewExpense={() => navigateTo("Expenses")}
         />

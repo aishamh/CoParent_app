@@ -3,7 +3,10 @@ import { StatusBar, ActivityIndicator, View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClientProvider } from "@tanstack/react-query";
 import Icon from "react-native-vector-icons/Feather";
@@ -48,9 +51,6 @@ const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 const MainStack = createNativeStackNavigator<ScreensStackParamList>();
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
-const TEAL = "#0d9488";
-const BACKGROUND = "#FDFAF5";
-
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -75,6 +75,7 @@ function OnboardingNavigator() {
 
 function TabNavigator() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -86,9 +87,9 @@ function TabNavigator() {
           backgroundColor: colors.card,
           borderTopWidth: 0.5,
           borderTopColor: colors.border,
-          paddingBottom: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
-          height: 60,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 0),
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -147,11 +148,14 @@ function TabNavigator() {
 }
 
 function MainNavigator() {
+  const { colors } = useTheme();
+
   return (
     <MainStack.Navigator
       screenOptions={{
-        headerTintColor: TEAL,
-        headerStyle: { backgroundColor: BACKGROUND },
+        headerTintColor: colors.primary,
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { color: colors.foreground },
         headerShadowVisible: false,
       }}
     >
@@ -185,7 +189,7 @@ function RootNavigator() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={TEAL} />
+        <ActivityIndicator size="large" color="#0D9488" />
       </View>
     );
   }
@@ -245,6 +249,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: BACKGROUND,
+    backgroundColor: "#F8FAFC",
   },
 });

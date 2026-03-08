@@ -647,7 +647,7 @@ export default function DocumentsScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Delete ${item.title}`}
           >
-            <Icon name="trash-2" size={14} color="#EF4444" />
+            <Icon name="trash-2" size={14} color={colors.destructive} />
           </TouchableOpacity>
         </View>
       </View>
@@ -695,7 +695,7 @@ export default function DocumentsScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Delete ${item.title}`}
             >
-              <Icon name="trash-2" size={12} color="#EF4444" />
+              <Icon name="trash-2" size={12} color={colors.destructive} />
             </TouchableOpacity>
           </View>
         </View>

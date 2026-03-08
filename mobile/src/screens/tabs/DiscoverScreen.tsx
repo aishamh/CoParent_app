@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +23,8 @@ import { usePlacesSearch } from "../../hooks/usePlacesSearch";
 import type { NearbyActivity } from "../../hooks/usePlacesSearch";
 import { calculateDistanceKm, formatDistance } from "../../utils/distance";
 import Card from "../../components/ui/Card";
+import { CachedImage } from "../../components/ui/CachedImage";
+import { imageCache } from "../../services/imageCache";
 import type { ColorPalette } from "../../constants/colors";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,8 @@ interface DiscoverActivity {
   website?: string;
   imageUrl?: string;
   imageColor?: string;
+  /** "curated" = premium Norwegian venue, "openstreetmap" = global OSM data */
+  source?: "curated" | "openstreetmap";
 }
 
 interface Category {
@@ -136,11 +139,12 @@ const CATEGORY_IMAGES: Record<string, string> = {
 };
 
 /** Resolve the best image URL for an activity, preferring the server-provided
- *  imageUrl, then falling back to the client-side ID map, then the category map. */
+ *  imageUrl, then falling back to the client-side ID map, then the category map.
+ *  Uses || so empty strings (e.g. from OSM venues) trigger the fallback chain. */
 function resolveActivityImage(activity: DiscoverActivity): string | undefined {
   return (
-    activity.imageUrl ??
-    ACTIVITY_IMAGES[activity.id] ??
+    activity.imageUrl ||
+    ACTIVITY_IMAGES[activity.id] ||
     CATEGORY_IMAGES[activity.category]
   );
 }
@@ -736,26 +740,17 @@ function ActivityCard({
     >
       {/* Activity image */}
       <View style={styles.cardImageContainer}>
-        {resolveActivityImage(activity) ? (
-          <Image
-            source={{ uri: resolveActivityImage(activity) }}
-            style={styles.cardImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View
-            style={[
-              styles.cardImageFallback,
-              { backgroundColor: categoryColor + "12" },
-            ]}
-          >
-            <Icon
-              name={category?.icon ?? "map-pin"}
-              size={28}
-              color={categoryColor}
-            />
-          </View>
-        )}
+        <CachedImage
+          uri={resolveActivityImage(activity)}
+          style={styles.cardImage}
+          containerStyle={[
+            styles.cardImageFallback,
+            { backgroundColor: categoryColor + "12" },
+          ]}
+          resizeMode="cover"
+          fallbackIcon={category?.icon ?? "map-pin"}
+          fallbackColor={categoryColor}
+        />
 
         {/* Category overlay badge */}
         <View
@@ -781,24 +776,43 @@ function ActivityCard({
       </View>
 
       <View style={styles.cardBody}>
-        {/* Activity name */}
-        <Text
-          style={[styles.activityName, { color: colors.foreground }]}
-          numberOfLines={1}
-        >
-          {activity.name}
-        </Text>
-
-        {/* Rating row */}
-        <View style={styles.ratingRow}>
-          <StarRating rating={activity.rating} colors={colors} />
-          <Text style={[styles.ratingNumber, { color: colors.foreground }]}>
-            {activity.rating.toFixed(1)}
+        {/* Activity name + source badge */}
+        <View style={styles.nameRow}>
+          <Text
+            style={[styles.activityName, styles.activityNameFlex, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {activity.name}
           </Text>
-          <Text style={[styles.reviewCount, { color: colors.mutedForeground }]}>
-            ({activity.reviewCount.toLocaleString()})
-          </Text>
+          {activity.source === "curated" && (
+            <View style={[styles.curatedBadge, { backgroundColor: colors.primary + "18" }]}>
+              <Icon name="award" size={10} color={colors.primary} />
+              <Text style={[styles.curatedBadgeText, { color: colors.primary }]}>
+                Curated
+              </Text>
+            </View>
+          )}
         </View>
+
+        {/* Rating row — hidden for OSM venues without ratings */}
+        {activity.rating > 0 ? (
+          <View style={styles.ratingRow}>
+            <StarRating rating={activity.rating} colors={colors} />
+            <Text style={[styles.ratingNumber, { color: colors.foreground }]}>
+              {activity.rating.toFixed(1)}
+            </Text>
+            <Text style={[styles.reviewCount, { color: colors.mutedForeground }]}>
+              ({activity.reviewCount.toLocaleString()})
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.ratingRow}>
+            <Icon name="globe" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.reviewCount, { color: colors.mutedForeground, marginLeft: 4 }]}>
+              Community venue
+            </Text>
+          </View>
+        )}
 
         {/* Description */}
         <Text
@@ -978,6 +992,7 @@ function toDiscoverActivity(nearby: NearbyActivity): DiscoverActivity {
     tags: nearby.tags,
     website: nearby.website,
     imageUrl: nearby.imageUrl,
+    source: nearby.source,
   };
 }
 
@@ -1105,6 +1120,16 @@ export default function DiscoverScreen() {
     }
     return filteredStaticActivities;
   }, [useApiData, filteredApiActivities, filteredStaticActivities, sortedStaticWithDistance]);
+
+  // Prefetch all visible activity images into local disk cache
+  useEffect(() => {
+    const urls = displayActivities
+      .map(resolveActivityImage)
+      .filter((url): url is string => !!url);
+    if (urls.length > 0) {
+      imageCache.prefetchBatch(urls);
+    }
+  }, [displayActivities]);
 
   // Distance map — API data has server-computed distances; static fallback uses client-side
   const distanceByActivityId = useMemo(() => {
@@ -1465,10 +1490,30 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 16,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
   activityName: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 6,
+  },
+  activityNameFlex: {
+    flex: 1,
+  },
+  curatedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  curatedBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   activityDescription: {
     fontSize: 13,

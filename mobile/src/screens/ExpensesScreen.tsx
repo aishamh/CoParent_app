@@ -200,7 +200,7 @@ export default function ExpensesScreen() {
           style: "destructive",
           onPress: () => {
             ReactNativeHapticFeedback.trigger("impactMedium");
-            updateExpense.mutate({ id: expense.id, updates: { status: "reimbursed" } });
+            updateExpense.mutate({ id: expense.id, updates: { status: "pending", notes: "Rejected — needs discussion" } });
           },
         },
       ],
@@ -273,7 +273,7 @@ export default function ExpensesScreen() {
           </Text>
         </View>
 
-        <View style={styles.actionRow}>
+        <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
           {isPending && (
             <>
               <TouchableOpacity
@@ -510,7 +510,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: "#E5E7EB",
   },
   actionButton: {
     flexDirection: "row",

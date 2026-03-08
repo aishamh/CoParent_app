@@ -23,6 +23,22 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// ---------------------------------------------------------------------------
+// 401 listener — lets AuthContext react to expired sessions
+// ---------------------------------------------------------------------------
+
+type UnauthorizedListener = () => void;
+let onUnauthorized: UnauthorizedListener | null = null;
+
+/** Register a callback that fires on any 401 response. */
+export function setOnUnauthorized(listener: UnauthorizedListener | null): void {
+  onUnauthorized = listener;
+}
+
+// ---------------------------------------------------------------------------
+// Core fetch wrapper
+// ---------------------------------------------------------------------------
+
 export async function fetchApi<T>(
   path: string,
   options?: RequestInit,
@@ -54,9 +70,10 @@ export async function fetchApi<T>(
       message = text || message;
     }
 
-    // On 401, clear the stored token (session expired)
+    // On 401, clear the stored token and notify AuthContext
     if (response.status === 401) {
       await deleteToken();
+      onUnauthorized?.();
     }
 
     throw new ApiError(message, response.status);

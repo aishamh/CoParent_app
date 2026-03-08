@@ -23,6 +23,8 @@ export interface NearbyActivity {
   website?: string;
   imageUrl?: string;
   distanceKm: number;
+  /** Where this venue came from — "curated" for premium Norwegian venues, "openstreetmap" for global OSM data. */
+  source?: "curated" | "openstreetmap";
 }
 
 interface NearbyPlacesResponse {
