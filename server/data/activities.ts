@@ -27,6 +27,7 @@ export interface PlaceActivity {
   longitude: number;
   tags: string[];
   website?: string;
+  imageUrl: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.2143,
     tags: ["Indoor", "Trampolines", "Ball Pit", "Climbing"],
     website: "https://leoslekeland.no/drammen",
+    imageUrl:
+      "https://images.unsplash.com/photo-1566454825481-9c31bd88c36f?w=800&h=400&fit=crop",
   },
   {
     id: "rush-trampolinepark-drammen",
@@ -69,6 +72,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.1302872,
     tags: ["Indoor", "Trampolines", "Ninja Course", "Foam Pit"],
     website: "https://rushtrampoline.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1626248801379-51a0748a5f96?w=800&h=400&fit=crop",
   },
   {
     id: "kino-city-drammen",
@@ -87,6 +92,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.203385,
     tags: ["Family Movies", "Kids Screenings", "3D"],
     website: "https://www.drammen-kino.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop",
   },
   {
     id: "drammens-museum",
@@ -105,6 +112,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.197178,
     tags: ["Art", "History", "Garden", "Exhibitions"],
     website: "https://drfrm.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Mine_p%C3%A5_Drammen_museum.jpg/800px-Mine_p%C3%A5_Drammen_museum.jpg",
   },
   {
     id: "spiralen-drammen",
@@ -123,6 +132,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.1978895,
     tags: ["Free", "Viewpoint", "Playground", "Hiking"],
     website: "https://www.drammen.kommune.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Spiralen2.jpg/800px-Spiralen2.jpg",
   },
   {
     id: "klatreverket-drammen",
@@ -141,6 +152,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.2234672,
     tags: ["Climbing", "Bouldering", "Kids Course", "Indoor"],
     website: "https://klatreverket.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1522163182402-834f871fd851?w=800&h=400&fit=crop",
   },
   {
     id: "drammenbadet",
@@ -159,6 +172,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.2155,
     tags: ["Water Slides", "Wave Pool", "Kids Pool", "Diving"],
     website: "https://drammenbadet.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=800&h=400&fit=crop",
   },
   {
     id: "bragernes-torg-park",
@@ -176,6 +191,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.7443,
     longitude: 10.2030,
     tags: ["Free", "Park", "Playground", "Central"],
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Bragernes_Square.jpg/800px-Bragernes_Square.jpg",
   },
   {
     id: "union-scene-drammen",
@@ -194,6 +211,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.192771,
     tags: ["Theater", "Concerts", "Kids Shows", "Art"],
     website: "https://unionscene.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Unionscene.jpg/800px-Unionscene.jpg",
   },
   {
     id: "drammens-teater",
@@ -212,6 +231,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.200442,
     tags: ["Theater", "Musicals", "Children's Shows", "Historic"],
     website: "https://drammensteater.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Drammens_teater_2018_%281%29.jpg/800px-Drammens_teater_2018_%281%29.jpg",
   },
   {
     id: "lier-bygdetun",
@@ -229,6 +250,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.799101,
     longitude: 10.257911,
     tags: ["Open-Air", "History", "Nature", "Crafts"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1584907797015-7554cd315667?w=800&h=400&fit=crop",
   },
   {
     id: "drammen-aktivitetspark",
@@ -246,6 +269,8 @@ const DRAMMEN_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.735,
     longitude: 10.208,
     tags: ["Free", "Climbing", "Skateboard", "Zip Line"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1596997000103-e597b3ca50df?w=800&h=400&fit=crop",
   },
 ];
 
@@ -271,6 +296,8 @@ const ASKER_BAERUM_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.5541,
     tags: ["Art", "Sculpture Park", "Family Workshops", "Fjord Views"],
     website: "https://hok.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Oslo_%E2%80%93_Henie_Onstad_Kunstsenter.jpg/800px-Oslo_%E2%80%93_Henie_Onstad_Kunstsenter.jpg",
   },
   {
     id: "baerums-verk",
@@ -289,6 +316,8 @@ const ASKER_BAERUM_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.502,
     tags: ["Historic", "Shopping", "Craft Markets", "Restaurants"],
     website: "https://baerumsverk.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1555921015-5532091f6026?w=800&h=400&fit=crop",
   },
 ];
 
@@ -314,6 +343,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.61,
     tags: ["Indoor", "Trampolines", "Birthday Parties"],
     website: "https://leoslekeland.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1566454825481-9c31bd88c36f?w=800&h=400&fit=crop",
   },
   {
     id: "tusenfryd",
@@ -332,6 +363,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.78,
     tags: ["Roller Coasters", "Water Park", "Seasonal"],
     website: "https://tusenfryd.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&h=400&fit=crop",
   },
   {
     id: "oslo-kino",
@@ -350,6 +383,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.722,
     tags: ["Family Movies", "3D", "Candy Bar"],
     website: "https://oslokino.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=400&fit=crop",
   },
   {
     id: "teknisk-museum",
@@ -368,6 +403,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.779,
     tags: ["Science", "Interactive", "Maker Space"],
     website: "https://tekniskmuseum.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Norsk_Teknisk_Museum_TRS_070501_011.jpg/800px-Norsk_Teknisk_Museum_TRS_070501_011.jpg",
   },
   {
     id: "frognerparken",
@@ -385,6 +422,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.9272,
     longitude: 10.701,
     tags: ["Free", "Sculptures", "Playground"],
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Frognerparken.jpg/800px-Frognerparken.jpg",
   },
   {
     id: "barnas-kulturhus",
@@ -402,6 +441,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.911,
     longitude: 10.761,
     tags: ["Theater", "Art Workshops", "Music"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop",
   },
   {
     id: "holmenkollen",
@@ -420,6 +461,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.667,
     tags: ["Ski Jump", "Zipline", "Museum"],
     website: "https://holmenkollen.com",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/New_Holmenkollen_ski_jump.jpg/800px-New_Holmenkollen_ski_jump.jpg",
   },
   {
     id: "sorenga-sjobad",
@@ -437,6 +480,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.904,
     longitude: 10.752,
     tags: ["Outdoor Pool", "Diving", "Fjord Views"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&h=400&fit=crop",
   },
   {
     id: "munch-museum",
@@ -455,6 +500,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.754,
     tags: ["Art", "Kids Workshops", "Architecture"],
     website: "https://munch.no",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/The_new_Munch_Museum_%28white_color_sign%29.jpg/800px-The_new_Munch_Museum_%28white_color_sign%29.jpg",
   },
   {
     id: "oslo-vinterpark",
@@ -473,6 +520,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     longitude: 10.668,
     tags: ["Skiing", "Kids Slopes", "Ski School"],
     website: "https://oslovinterpark.no",
+    imageUrl:
+      "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800&h=400&fit=crop",
   },
   {
     id: "barnekunstmuseet",
@@ -490,6 +539,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.927,
     longitude: 10.715,
     tags: ["Children's Art", "Workshops", "Global"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800&h=400&fit=crop",
   },
   {
     id: "oslo-reptilpark",
@@ -507,6 +558,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.909,
     longitude: 10.766,
     tags: ["Animals", "Interactive", "Educational"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1504450874802-0ba2bcd659e0?w=800&h=400&fit=crop",
   },
   {
     id: "oslo-klatrepark",
@@ -524,6 +577,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.966,
     longitude: 10.73,
     tags: ["Climbing", "Zip Line", "Outdoor"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1545396924-6cfa1abd34b5?w=800&h=400&fit=crop",
   },
   {
     id: "bogstad-swimming",
@@ -541,6 +596,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.965,
     longitude: 10.649,
     tags: ["Lake", "Beach", "Canoe Rental"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop",
   },
   {
     id: "deichman-toyen",
@@ -558,6 +615,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.915,
     longitude: 10.771,
     tags: ["Free", "Library", "Workshops"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=800&h=400&fit=crop",
   },
   {
     id: "salt-art-music",
@@ -575,6 +634,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.908,
     longitude: 10.748,
     tags: ["Art", "Music", "Waterfront"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop",
   },
   {
     id: "oslo-filmfestival-kids",
@@ -592,6 +653,8 @@ const OSLO_ACTIVITIES: PlaceActivity[] = [
     latitude: 59.925,
     longitude: 10.759,
     tags: ["Baby Cinema", "Kids Screenings", "Lounge"],
+    imageUrl:
+      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop",
   },
 ];
 

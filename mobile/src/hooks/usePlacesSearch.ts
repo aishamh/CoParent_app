@@ -21,6 +21,7 @@ export interface NearbyActivity {
   longitude: number;
   tags: string[];
   website?: string;
+  imageUrl?: string;
   distanceKm: number;
 }
 

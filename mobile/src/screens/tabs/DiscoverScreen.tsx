@@ -46,6 +46,7 @@ interface DiscoverActivity {
   longitude: number;
   tags: string[];
   website?: string;
+  imageUrl?: string;
   imageColor?: string;
 }
 
@@ -134,9 +135,14 @@ const CATEGORY_IMAGES: Record<string, string> = {
     "https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&h=400&fit=crop",
 };
 
-/** Resolve the best image URL for an activity, falling back to its category. */
+/** Resolve the best image URL for an activity, preferring the server-provided
+ *  imageUrl, then falling back to the client-side ID map, then the category map. */
 function resolveActivityImage(activity: DiscoverActivity): string | undefined {
-  return ACTIVITY_IMAGES[activity.id] ?? CATEGORY_IMAGES[activity.category];
+  return (
+    activity.imageUrl ??
+    ACTIVITY_IMAGES[activity.id] ??
+    CATEGORY_IMAGES[activity.category]
+  );
 }
 
 const OSLO_ACTIVITIES: DiscoverActivity[] = [
@@ -971,6 +977,7 @@ function toDiscoverActivity(nearby: NearbyActivity): DiscoverActivity {
     longitude: nearby.longitude,
     tags: nearby.tags,
     website: nearby.website,
+    imageUrl: nearby.imageUrl,
   };
 }
 
