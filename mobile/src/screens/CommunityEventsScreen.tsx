@@ -236,138 +236,127 @@ function EventCard({ event, colors, onPress, onRsvp, rsvpPending }: EventCardPro
   const categoryIcon = getCategoryIcon(event.category);
 
   return (
-    <Card
-    <Card
-      style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={() => onPress(event)}
-      onPress={() => onPress(event)}
-    >
-    >
-      <View style={styles.eventCardHeader}>
-      <View style={styles.eventCardHeader}>
-        <View style={[styles.eventCategoryBadge, { backgroundColor: categoryColor + "20" }]}>
-        <View style={[styles.eventCategoryBadge, { backgroundColor: categoryColor + "20" }]}>
-          <Icon name={categoryIcon} size={14} color={categoryColor} />
-          <Icon name={categoryIcon} size={14} color={categoryColor} />
-          <Text style={[styles.eventCategoryText, { color: categoryColor }]}>
-          <Text style={[styles.eventCategoryText, { color: categoryColor }]}>
-            {event.category || "Other"}
-            {event.category || "Other"}
-          </Text>
-          </Text>
-        </View>
-        </View>
-        {event.price && (
-        {event.price && (
-          <Text style={[styles.eventPrice, { color: colors.mutedForeground }]}>
-            {event.price}
-          </Text>
-        )}
-      </View>
-
-      <Text style={[styles.eventTitle, { color: colors.foreground }]} numberOfLines={2}>
-        {event.title}
-      </Text>
-
-      {event.description && (
-        <Text style={[styles.eventDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
-          {event.description}
-        </Text>
-      )}
-
-      <View style={styles.eventMeta}>
-        <View style={styles.eventMetaItem}>
-          <Icon name="calendar" size={14} color={colors.mutedForeground} />
-          <Text style={[styles.eventMetaText, { color: colors.mutedForeground }]}>
-            {formatEventDate(event.event_date)}
-          </Text>
-        </View>
-        {event.event_time && (
-          <View style={styles.eventMetaItem}>
-            <Icon name="clock" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.eventMetaText, { color: colors.mutedForeground }]}>
-              {formatEventTime(event.event_time)}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {event.location && (
-        <View style={styles.eventLocation}>
-          <Icon name="map-pin" size={14} color={colors.mutedForeground} />
-          <Text style={[styles.eventLocationText, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {event.location}
-          </Text>
-        </View>
-      )}
-
-      {event.source_name && (
-        <View style={styles.eventSource}>
-          <Icon name="briefcase" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.eventSourceText, { color: colors.mutedForeground }]}>
-            {event.source_name}
-          </Text>
-        </View>
-      )}
-
-      {/* RSVP Buttons */}
-      <View style={styles.rsvpActions}>
-        {event.user_rsvp_status !== "going" && (
-          <TouchableOpacity
-            style={[
-              styles.rsvpButton,
-              styles.rsvpButtonGoing,
-              { backgroundColor: "#22C55E" },
-            ]}
-            onPress={() => onRsvp("going")}
-            disabled={rsvpPending}
-            activeOpacity={0.7}
-          >
-            {rsvpPending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Icon name="check" size={16} color="#FFFFFF" />
-                <Text style={[styles.rsvpButtonText, { color: "#FFFFFF" }]}>Going</Text>
-              </>
+    <View style={styles.eventCardWrapper}>
+      <TouchableOpacity onPress={() => onPress(event)} activeOpacity={0.8}>
+        <Card style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.eventCardHeader}>
+            <View style={[styles.eventCategoryBadge, { backgroundColor: categoryColor + "20" }]}>
+              <Icon name={categoryIcon} size={14} color={categoryColor} />
+              <Text style={[styles.eventCategoryText, { color: categoryColor }]}>
+                {event.category || "Other"}
+              </Text>
+            </View>
+            {event.price && (
+              <Text style={[styles.eventPrice, { color: colors.mutedForeground }]}>
+                {event.price}
+              </Text>
             )}
-          </TouchableOpacity>
-        )}
-
-        {event.user_rsvp_status === "going" && (
-          <View style={[styles.rsvpButton, styles.rsvpButtonGoing, { backgroundColor: "#D1FAE5" }]}>
-            <Icon name="check-circle" size={16} color="#065F46" />
-            <Text style={[styles.rsvpButtonText, { color: "#065F46" }]}>Going</Text>
           </View>
-        )}
 
-        {event.user_rsvp_status !== "interested" && event.user_rsvp_status !== "going" && (
-          <TouchableOpacity
-            style={[
-              styles.rsvpButton,
-              styles.rsvpButtonInterested,
-              { borderColor: colors.border },
-            ]}
-            onPress={() => onRsvp("interested")}
-            disabled={rsvpPending}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.rsvpButtonText, { color: colors.foreground }]}>Interested</Text>
-          </TouchableOpacity>
-        )}
+          <Text style={[styles.eventTitle, { color: colors.foreground }]} numberOfLines={2}>
+            {event.title}
+          </Text>
 
-        {event.user_rsvp_status === "interested" && (
-          <View style={[
-            styles.rsvpButton,
-            styles.rsvpButtonInterested,
-            { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" },
-          ]}>
-            <Text style={[styles.rsvpButtonText, { color: "#92400E" }]}>Interested</Text>
+          {event.description && (
+            <Text style={[styles.eventDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {event.description}
+            </Text>
+          )}
+
+          <View style={styles.eventMeta}>
+            <View style={styles.eventMetaItem}>
+              <Icon name="calendar" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.eventMetaText, { color: colors.mutedForeground }]}>
+                {formatEventDate(event.event_date)}
+              </Text>
+            </View>
+            {event.event_time && (
+              <View style={styles.eventMetaItem}>
+                <Icon name="clock" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.eventMetaText, { color: colors.mutedForeground }]}>
+                  {formatEventTime(event.event_time)}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-    </Card>
+
+          {event.location && (
+            <View style={styles.eventLocation}>
+              <Icon name="map-pin" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.eventLocationText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {event.location}
+              </Text>
+            </View>
+          )}
+
+          {event.source_name && (
+            <View style={styles.eventSource}>
+              <Icon name="briefcase" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.eventSourceText, { color: colors.mutedForeground }]}>
+                {event.source_name}
+              </Text>
+            </View>
+          )}
+
+          {/* RSVP Buttons */}
+          <View style={styles.rsvpActions}>
+            {event.user_rsvp_status !== "going" && (
+              <TouchableOpacity
+                style={[
+                  styles.rsvpButton,
+                  styles.rsvpButtonGoing,
+                  { backgroundColor: "#22C55E" },
+                ]}
+                onPress={() => onRsvp("going")}
+                disabled={rsvpPending}
+                activeOpacity={0.7}
+              >
+                {rsvpPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="check" size={16} color="#FFFFFF" />
+                    <Text style={[styles.rsvpButtonText, { color: "#FFFFFF" }]}>Going</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {event.user_rsvp_status === "going" && (
+              <View style={[styles.rsvpButton, styles.rsvpButtonGoing, { backgroundColor: "#D1FAE5" }]}>
+                <Icon name="check-circle" size={16} color="#065F46" />
+                <Text style={[styles.rsvpButtonText, { color: "#065F46" }]}>Going</Text>
+              </View>
+            )}
+
+            {event.user_rsvp_status !== "interested" && event.user_rsvp_status !== "going" && (
+              <TouchableOpacity
+                style={[
+                  styles.rsvpButton,
+                  styles.rsvpButtonInterested,
+                  { borderColor: colors.border },
+                ]}
+                onPress={() => onRsvp("interested")}
+                disabled={rsvpPending}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.rsvpButtonText, { color: colors.foreground }]}>Interested</Text>
+              </TouchableOpacity>
+            )}
+
+            {event.user_rsvp_status === "interested" && (
+              <View style={[
+                styles.rsvpButton,
+                styles.rsvpButtonInterested,
+                { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" },
+              ]}>
+                <Text style={[styles.rsvpButtonText, { color: "#92400E" }]}>Interested</Text>
+              </View>
+            )}
+          </View>
+        </Card>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -532,7 +521,7 @@ export default function CommunityEventsScreen() {
 
   const filteredEvents = useMemo(() => {
     if (!data?.data) return [];
-    let events = data.data;
+    let events = data.data as CommunityEventWithRsvp[];
     if (selectedTime !== "all") {
       events = filterEventsByTime(events, selectedTime);
     }
@@ -544,7 +533,7 @@ export default function CommunityEventsScreen() {
   }, [filteredEvents]);
 
   const recommendedEvents = useMemo(() => {
-    return data?.recommended || [];
+    return (data?.recommended || []) as CommunityEventWithRsvp[];
   }, [data?.recommended]);
 
   const handleEventPress = (event: CommunityEventWithRsvp) => {
@@ -819,11 +808,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   eventCard: {
-    marginHorizontal: 24,
-    marginBottom: 12,
     padding: 16,
     borderRadius: 16,
     borderWidth: 0.5,
+  },
+  eventCardWrapper: {
+    marginHorizontal: 24,
+    marginBottom: 12,
   },
   eventCardHeader: {
     flexDirection: "row",

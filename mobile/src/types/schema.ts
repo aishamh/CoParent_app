@@ -1,5 +1,6 @@
 // Re-export all shared types from the parent project's schema
 // This avoids complex path resolution issues with Metro/TypeScript
+
 export type {
   Family,
   User,
@@ -56,6 +57,62 @@ export type {
   UpdateProfessionalAccess,
   // Phase 6: Payment Integration
   UpdatePaymentInfo,
+  // Phase 7: Photo Albums
+  PhotoAlbum,
+  Photo,
+  InsertPhotoAlbum,
+  InsertPhoto,
+  MessageAttachmentType,
+  // Phase 8: Child Info Bank
+  ChildInfoEntry,
+  ChildInfoCategory,
+  InsertChildInfoEntry,
+  UpdateChildInfoEntry,
+  // Phase 9: Exchange Tracking
+  ExchangeRecord,
+  ExchangeType,
+  ExchangeStatus,
+  InsertExchangeRecord,
+  // Phase 10: Private Journal
+  JournalEntry,
+  JournalMood,
+  InsertJournalEntry,
+  UpdateJournalEntry,
+  // Phase 11: Login/Session Audit Trail
+  LoginHistoryEntry,
+  LoginEventType,
+  // Phase 14: School System Integration
+  SchoolPlatform,
+  SchoolConnection,
+  SchoolHomework,
+  HomeworkStatus,
+  InsertSchoolConnection,
+  InsertSchoolHomework,
+  UpdateSchoolHomework,
+  SchoolAttendance,
+  AttendanceStatus,
+  InsertSchoolAttendance,
+  SchoolGrade,
+  InsertSchoolGrade,
+  // Phase 15: Community Events & Carpooling
+  CommunityEvent,
+  InsertCommunityEvent,
+  UpdateCommunityEvent,
+  EventAttendee,
+  InsertEventAttendee,
+  UpdateEventAttendee,
+  CarpoolArrangement,
+  InsertCarpoolArrangement,
+  UpdateCarpoolArrangement,
+  EventNotification,
+  InsertEventNotification,
+  CommunityEventSource,
+  CommunityEventCategory,
+  AttendeeStatus,
+  CarpoolType,
+  CarpoolStatus,
+  EventNotificationType,
+  EventNotificationStatus,
 } from "../../../shared/schema";
 
 export {

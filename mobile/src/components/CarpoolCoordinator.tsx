@@ -117,6 +117,7 @@ export default function CarpoolCoordinator({ visible, eventId, colors, onClose }
     pickup_location: "",
     pickup_time: "",
     notes: "",
+    children_transporting: [] as number[],
   });
 
   const { data: arrangements = [] } = useCarpoolArrangements(eventId);
@@ -150,6 +151,7 @@ export default function CarpoolCoordinator({ visible, eventId, colors, onClose }
             pickup_location: "",
             pickup_time: "",
             notes: "",
+            children_transporting: [],
           });
           onClose();
         },

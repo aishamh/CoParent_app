@@ -10,7 +10,7 @@ import type {
   InsertCarpoolArrangement,
   UpdateCarpoolArrangement,
   CarpoolArrangement,
-} from "../../shared/schema";
+} from "../types/schema";
 
 // ============================================================
 // Carpool Arrangements

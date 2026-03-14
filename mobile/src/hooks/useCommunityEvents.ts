@@ -19,7 +19,7 @@ import type {
   InsertCommunityEvent,
   InsertEventAttendee,
   UpdateEventAttendee,
-} from "../../shared/schema";
+} from "../types/schema";
 
 // ============================================================
 // Community Events
