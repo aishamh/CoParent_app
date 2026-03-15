@@ -1,7 +1,7 @@
 import { fetchApi, type PaginatedResponse } from "./client";
 import type { Message } from "../types/schema";
 
-export async function getMessages(otherUserId?: number): Promise<Message[]> {
+export async function getMessages(otherUserId?: string): Promise<Message[]> {
   try {
     const params = otherUserId ? `?otherUserId=${otherUserId}` : "";
     const response = await fetchApi<PaginatedResponse<Message>>(`/api/messages${params}`);
@@ -12,9 +12,11 @@ export async function getMessages(otherUserId?: number): Promise<Message[]> {
 }
 
 interface SendMessageData {
-  receiver_id: number;
+  receiver_id: string;
   content: string;
   subject?: string;
+  attachment_url?: string;
+  attachment_type?: "image" | "file";
 }
 
 export async function sendMessage(
@@ -30,7 +32,7 @@ export async function sendMessage(
   }
 }
 
-export async function markMessageAsRead(id: number): Promise<void> {
+export async function markMessageAsRead(id: string): Promise<void> {
   try {
     await fetchApi<void>(`/api/messages/${id}/read`, { method: "PATCH" });
   } catch {

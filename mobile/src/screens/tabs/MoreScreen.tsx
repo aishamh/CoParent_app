@@ -19,15 +19,20 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  { label: "Private Journal", icon: "lock", route: "PrivateJournal" },
+  { label: "School", icon: "book-open", route: "SchoolIntegration" },
   { label: "Custody Schedule", icon: "repeat", route: "CustodySchedule" },
   { label: "Parenting Plan", icon: "file-text", route: "ParentingPlan" },
   { label: "Exchange Tracking", icon: "map-pin", route: "ExchangeTracking" },
+  { label: "Photo Albums", icon: "camera", route: "PhotoAlbums" },
+  { label: "Info Bank", icon: "book", route: "ChildInfoBank" },
   { label: "Expenses", icon: "dollar-sign", route: "Expenses" },
   { label: "Documents", icon: "folder", route: "Documents" },
   { label: "Export Records", icon: "download", route: "ExportHistory" },
   { label: "Professional Access", icon: "briefcase", route: "ProfessionalAccess" },
   { label: "Education", icon: "book-open", route: "Education" },
   { label: "Social", icon: "users", route: "Social" },
+  { label: "Community Events", icon: "calendar", route: "CommunityEvents" },
   { label: "Settings", icon: "settings", route: "Settings" },
 ];
 

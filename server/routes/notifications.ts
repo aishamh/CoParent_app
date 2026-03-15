@@ -8,6 +8,12 @@ import {
   updateNotificationPreferencesSchema,
 } from "../../shared/schema";
 
+import {
+  processPendingNotifications,
+  getNotificationStats,
+  cleanupOldNotifications,
+} from "../services/eventNotificationScheduler";
+
 export function registerNotificationRoutes(app: Express): void {
   // Register device token
   app.post("/api/device-tokens", requireAuth, async (req, res) => {
@@ -123,6 +129,45 @@ export function registerNotificationRoutes(app: Express): void {
     } catch (error) {
       console.error("[Notifications] Update preferences error:", error);
       res.status(400).json({ error: "Invalid preferences data" });
+    }
+  });
+}
+
+  // ========================================================
+  // Event Notification Management (Admin/Dev only)
+  // ========================================================
+
+  // POST /api/notifications/process - Manually trigger notification processing
+  // This would typically be called by a cron job, but exposed for testing
+  app.post("/api/notifications/process", async (req, res) => {
+    try {
+      const count = await processPendingNotifications();
+      res.json({ processed: count });
+    } catch (error) {
+      console.error("[Notifications] Process error:", error);
+      res.status(500).json({ error: "Failed to process notifications" });
+    }
+  });
+
+  // GET /api/notifications/stats - Get notification statistics
+  app.get("/api/notifications/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await getNotificationStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("[Notifications] Stats error:", error);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  // POST /api/notifications/cleanup - Clean up old notifications
+  app.post("/api/notifications/cleanup", async (req, res) => {
+    try {
+      const count = await cleanupOldNotifications();
+      res.json({ cleaned: count });
+    } catch (error) {
+      console.error("[Notifications] Cleanup error:", error);
+      res.status(500).json({ error: "Failed to cleanup notifications" });
     }
   });
 }

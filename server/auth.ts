@@ -5,7 +5,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 
 const SALT_ROUNDS = 10;
-const JWT_EXPIRES_IN = '7d';
+const JWT_EXPIRES_IN = '24h';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;

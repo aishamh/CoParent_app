@@ -4,6 +4,9 @@ import { createHash } from "crypto";
 import multer from "multer";
 import { put, del } from "@vercel/blob";
 import { storage } from "./storage";
+import { db } from "./db";
+import { loginHistory } from "./tables";
+import { eq, desc } from "drizzle-orm";
 import { hashPassword, verifyPassword, sanitizeUser, requireAuth, generateToken } from "./auth";
 import { authRateLimiter, apiRateLimiter } from "./middleware/security";
 import {
@@ -29,6 +32,13 @@ import { registerCustodyRoutes } from "./routes/custody";
 import { registerToneRoutes } from "./routes/toneCheck";
 import { registerProfessionalRoutes } from "./routes/professionals";
 import { registerPaymentRoutes } from "./routes/payments";
+import { registerPhotoRoutes } from "./routes/photos";
+import { registerChildInfoRoutes } from "./routes/childInfo";
+import { registerExchangeRoutes } from "./routes/exchanges";
+import { registerJournalRoutes } from "./routes/journal";
+import { registerCalendarExportRoutes } from "./routes/calendarExport";
+import { registerSchoolRoutes } from "./routes/school";
+import { registerCommunityEventsRoutes } from "./routes/communityEvents";
 
 /** Parse page/limit query params into pagination values with safe defaults. */
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number; offset: number } {
@@ -58,6 +68,19 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
+
+async function logAuthEvent(userId: string, eventType: string, req: express.Request): Promise<void> {
+  try {
+    await db.insert(loginHistory).values({
+      user_id: userId,
+      event_type: eventType,
+      ip_address: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+      user_agent: req.headers["user-agent"] || null,
+    });
+  } catch {
+    // Non-fatal: don't break auth flow if logging fails
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -101,7 +124,7 @@ export async function registerRoutes(
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
 
       res.status(201).json({ ...sanitizeUser(updatedUser || user), token });
@@ -123,16 +146,18 @@ export async function registerRoutes(
       // Verify password
       const isValid = await verifyPassword(validatedData.password, user.password);
       if (!isValid) {
+        await logAuthEvent(user.id, "login_failed", req);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Generate JWT token
       const token = generateToken(user.id);
+      await logAuthEvent(user.id, "login", req);
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
 
       res.json({ ...sanitizeUser(user), token });
@@ -145,9 +170,26 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    await logAuthEvent((req as any).userId, "logout", req);
     res.clearCookie('token');
     res.json({ message: "Logged out successfully" });
+  });
+
+  app.get("/api/auth/login-history", requireAuth, async (req, res) => {
+    try {
+      const userId: string = (req as any).userId;
+      const entries = await db
+        .select()
+        .from(loginHistory)
+        .where(eq(loginHistory.user_id, userId))
+        .orderBy(desc(loginHistory.created_at))
+        .limit(50);
+      res.json({ data: entries });
+    } catch (error) {
+      console.error("Error fetching login history:", error);
+      res.status(500).json({ error: "Failed to fetch login history" });
+    }
   });
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {
@@ -365,6 +407,8 @@ export async function registerRoutes(
         sender_ip: sender_ip || undefined,
         family_id: senderFamilyId,
         sender_id: senderId,
+        attachment_url: validatedData.attachment_url ?? undefined,
+        attachment_type: validatedData.attachment_type ?? undefined,
       });
 
       res.status(201).json(message);
@@ -454,6 +498,45 @@ export async function registerRoutes(
       res.status(201).json(document);
     } catch (error) {
       res.status(400).json({ error: "Failed to upload document" });
+    }
+  });
+
+  // ----------------------------------------------------------
+  // POST /api/attachments/upload — Upload an image or file for messages
+  // ----------------------------------------------------------
+  app.post("/api/attachments/upload", requireAuth, upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const isImage = req.file.mimetype.startsWith("image/");
+      const folder = isImage ? "attachments/images" : "attachments/files";
+
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.json({
+          url: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64").slice(0, 100)}...`,
+          type: isImage ? "image" : "file",
+          filename: req.file.originalname,
+          size: req.file.size,
+        });
+      }
+
+      const blob = await put(
+        `${folder}/${Date.now()}-${req.file.originalname}`,
+        req.file.buffer,
+        { access: "public", contentType: req.file.mimetype },
+      );
+
+      res.json({
+        url: blob.url,
+        type: isImage ? "image" : "file",
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (error) {
+      console.error("[Attachments] Upload error:", error);
+      res.status(400).json({ error: "Failed to upload attachment" });
     }
   });
 
@@ -1044,8 +1127,11 @@ export async function registerRoutes(
 
       const categoryFilter = req.query.category as string | undefined;
 
+      // Cache headers — venues don't change often
+      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=600");
+
       // ---------------------------------------------------------------
-      // Tier 1: Curated Norwegian venues (always checked first)
+      // Tier 1: Curated venues (instant — no network call)
       // ---------------------------------------------------------------
 
       const curatedResults = ALL_ACTIVITIES
@@ -1059,7 +1145,7 @@ export async function registerRoutes(
         .sort((a, b) => a.distanceKm - b.distanceKm);
 
       // ---------------------------------------------------------------
-      // Tier 2: OpenStreetMap worldwide venues via Overpass API
+      // Tier 2: OpenStreetMap via Overpass (8s timeout, racing mirrors)
       // ---------------------------------------------------------------
 
       let osmResults: Array<PlaceActivity & { distanceKm: number; source: "openstreetmap" }> = [];
@@ -1129,6 +1215,13 @@ export async function registerRoutes(
   registerToneRoutes(app);
   registerProfessionalRoutes(app);
   registerPaymentRoutes(app);
+  registerPhotoRoutes(app);
+  registerChildInfoRoutes(app);
+  registerExchangeRoutes(app);
+  registerCalendarExportRoutes(app);
+  registerJournalRoutes(app);
+  registerSchoolRoutes(app);
+  registerCommunityEventsRoutes(app);
 
   return httpServer;
 }

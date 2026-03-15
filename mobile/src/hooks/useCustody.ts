@@ -7,6 +7,7 @@ import {
   getSwapRequests,
   createSwapRequest,
   respondToSwapRequest,
+  getParentingTime,
 } from "../api/custody";
 import type { InsertCustodySchedule, InsertSwapRequest } from "../types/schema";
 
@@ -68,5 +69,12 @@ export function useRespondToSwapRequest() {
       respondToSwapRequest(id, status),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["swapRequests"] }),
+  });
+}
+
+export function useParentingTime() {
+  return useQuery({
+    queryKey: ["parenting-time"],
+    queryFn: getParentingTime,
   });
 }

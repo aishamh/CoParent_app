@@ -38,6 +38,7 @@ import {
 import { useEvents, useDeleteEvent } from "../../hooks/useEvents";
 import { useTheme } from "../../theme/useTheme";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
+import { getSubscribeUrl } from "../../api/calendarExport";
 import EventForm from "../../components/forms/EventForm";
 import type { Event } from "../../types/schema";
 import type { ColorPalette } from "../../constants/colors";
@@ -221,16 +222,19 @@ function ActionButtonsRow({
   onFilter,
   onExport,
   onShare,
+  onSubscribe,
 }: {
   colors: ColorPalette;
   onAddEvent: () => void;
   onFilter: () => void;
   onExport: () => void;
   onShare: () => void;
+  onSubscribe: () => void;
 }) {
   const actions = [
     { label: "Add Event", icon: "plus", handler: onAddEvent },
     { label: "Filter", icon: "filter", handler: onFilter },
+    { label: "Subscribe", icon: "rss", handler: onSubscribe },
     { label: "Export", icon: "download", handler: onExport },
     { label: "Share", icon: "share-2", handler: onShare },
   ];
@@ -1091,6 +1095,30 @@ export default function CalendarScreen() {
     });
   }, []);
 
+  const handleSubscribe = useCallback(async () => {
+    const url = await getSubscribeUrl();
+    if (!url) {
+      Alert.alert("Error", "Could not generate a subscription link.");
+      return;
+    }
+
+    Alert.alert(
+      "Calendar Subscription",
+      "A subscribe URL has been generated. Share it to add this calendar to Apple Calendar, Google Calendar, or Outlook.\n\nOn iOS: Settings → Calendar → Accounts → Add Subscribed Calendar → paste URL.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Share URL",
+          onPress: () => {
+            Share.share({ message: url, title: "CoParent Calendar URL" }).catch(
+              () => {},
+            );
+          },
+        },
+      ],
+    );
+  }, []);
+
   const handleCloseEventForm = useCallback(() => {
     setShowEventForm(false);
     setEditingEvent(null);
@@ -1151,6 +1179,7 @@ export default function CalendarScreen() {
         onFilter={() => setShowFilter(true)}
         onExport={handleExport}
         onShare={handleShare}
+        onSubscribe={handleSubscribe}
       />
 
       {/* Calendar views */}

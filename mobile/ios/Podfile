@@ -14,6 +14,21 @@ target 'CoParentConnect' do
     :privacy_file_aggregation_enabled => true,
   )
 
+  # Generate Hermes dSYM for archive uploads (fixes TestFlight warning)
+  script_phase :name => 'Generate Hermes dSYM',
+    :script => <<~SCRIPT,
+      if [ "${ACTION}" = "install" ] || [ -n "${ARCHIVE_PATH}" ]; then
+        HERMES_FRAMEWORK="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm"
+        DSYM_OUTPUT="${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM"
+        if [ -f "${HERMES_FRAMEWORK}" ] && [ ! -d "${DSYM_OUTPUT}" ]; then
+          echo "Generating dSYM for hermesvm.framework..."
+          dsymutil "${HERMES_FRAMEWORK}" -o "${DSYM_OUTPUT}" 2>/dev/null || true
+          echo "hermesvm dSYM generated at: ${DSYM_OUTPUT}"
+        fi
+      fi
+    SCRIPT
+    :execution_position => :after_compile
+
   post_install do |installer|
     react_native_post_install(
       installer,
@@ -24,6 +39,7 @@ target 'CoParentConnect' do
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         build_config.build_settings['SWIFT_VERSION'] = '5.0'
+        build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
       end
     end
   end

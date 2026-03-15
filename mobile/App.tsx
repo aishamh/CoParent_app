@@ -10,13 +10,17 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClientProvider } from "@tanstack/react-query";
 import Icon from "react-native-vector-icons/Feather";
+import * as Sentry from "@sentry/react-native";
 
+import { initSentry } from "./src/config/sentry";
 import { queryClient } from "./src/api/queryClient";
 import { AuthProvider } from "./src/auth/AuthContext";
 import { ThemeProvider } from "./src/theme/ThemeContext";
 import { useTheme } from "./src/theme/useTheme";
 import { useAuth } from "./src/auth/useAuth";
 import { ErrorBoundary } from "./src/components/shared/ErrorBoundary";
+
+initSentry();
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -39,6 +43,12 @@ import ExchangeTrackingScreen from "./src/screens/ExchangeTrackingScreen";
 import CustodyScheduleScreen from "./src/screens/CustodyScheduleScreen";
 import ExportHistoryScreen from "./src/screens/ExportHistoryScreen";
 import ProfessionalAccessScreen from "./src/screens/ProfessionalAccessScreen";
+import PhotoAlbumsScreen from "./src/screens/PhotoAlbumsScreen";
+import PhotoAlbumDetailScreen from "./src/screens/PhotoAlbumDetailScreen";
+import ChildInfoBankScreen from "./src/screens/ChildInfoBankScreen";
+import PrivateJournalScreen from "./src/screens/PrivateJournalScreen";
+import SchoolIntegrationScreen from "./src/screens/SchoolIntegrationScreen";
+import CommunityEventsScreen from "./src/screens/CommunityEventsScreen";
 
 import type {
   RootStackParamList,
@@ -197,6 +207,33 @@ function MainNavigator() {
         component={ProfessionalAccessScreen}
         options={{ title: "Professional Access" }}
       />
+      <MainStack.Screen
+        name="PhotoAlbums"
+        component={PhotoAlbumsScreen}
+        options={{ title: "Photo Albums" }}
+      />
+      <MainStack.Screen
+        name="PhotoAlbumDetail"
+        component={PhotoAlbumDetailScreen}
+        options={({ route }) => ({
+          title: (route.params as { albumTitle?: string })?.albumTitle || "Album",
+        })}
+      />
+      <MainStack.Screen
+        name="ChildInfoBank"
+        component={ChildInfoBankScreen}
+        options={{ title: "Info Bank" }}
+      />
+      <MainStack.Screen
+        name="PrivateJournal"
+        component={PrivateJournalScreen}
+        options={{ title: "Private Journal" }}
+      />
+      <MainStack.Screen
+        name="SchoolIntegration"
+        component={SchoolIntegrationScreen}
+        options={{ title: "School" }}
+      />
     </MainStack.Navigator>
   );
 }
@@ -241,7 +278,7 @@ function ThemedApp() {
   );
 }
 
-export default function App() {
+function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
@@ -258,6 +295,8 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(App);
 
 const styles = StyleSheet.create({
   root: {

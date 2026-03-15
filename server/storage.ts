@@ -158,7 +158,7 @@ export class DatabaseStorage implements IStorage {
 
   async joinFamily(userId: string, familyId: string): Promise<User | undefined> {
     const [updated] = await db.update(users)
-      .set({ family_id: familyId })
+      .set({ family_id: familyId, role: "parent_b" })
       .where(eq(users.id, userId))
       .returning();
     return updated || undefined;
@@ -541,11 +541,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const result = await db
-      .select()
+    const [result] = await db
+      .select({ total: count() })
       .from(messages)
       .where(and(eq(messages.receiver_id, userId), eq(messages.is_read, false)));
-    return result.length;
+    return result?.total ?? 0;
   }
 
   // Document methods

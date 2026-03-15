@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Alert,
   Modal,
@@ -17,20 +17,26 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Feather";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Geolocation from "@react-native-community/geolocation";
+import { launchImageLibrary } from "react-native-image-picker";
 import { useNavigation } from "@react-navigation/native";
 
 import { useTheme } from "../theme/useTheme";
 import { useAuth } from "../auth/useAuth";
 import { useChildren } from "../hooks/useChildren";
+import {
+  useExchangeRecords,
+  useCreateExchangeRecord,
+} from "../hooks/useExchanges";
+import { useRefreshOnFocus } from "../hooks/useRefreshOnFocus";
+import { uploadAttachment } from "../api/photos";
 import Card from "../components/ui/Card";
+import type { ExchangeRecord } from "../types/schema";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "@exchange_logs";
 const EXCHANGE_TYPE_DROPOFF = "dropoff" as const;
 const EXCHANGE_TYPE_PICKUP = "pickup" as const;
 const STATUS_ONTIME = "ontime" as const;
@@ -65,32 +71,27 @@ const FILTER_OPTIONS: { key: FilterOption; label: string }[] = [
 type SortOption = "newest" | "oldest";
 
 // ---------------------------------------------------------------------------
-// Data Model
+// Form data shape for creating a new exchange via API
 // ---------------------------------------------------------------------------
 
-interface ExchangeLog {
-  id: string;
-  timestamp: string;
+interface ExchangeFormData {
   type: "dropoff" | "pickup";
-  fromParent: string;
-  toParent: string;
+  from_parent: string;
+  to_parent: string;
   children: string[];
   latitude: number;
   longitude: number;
   accuracy: number;
   address: string;
+  timestamp: string;
   status: "ontime" | "late" | "missed";
-  notes: string;
-  photoUri?: string;
+  notes?: string;
+  photo_url?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function generateId(): string {
-  return `ex_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
 
 function formatAbsoluteDate(isoString: string): string {
   const date = new Date(isoString);
@@ -143,13 +144,13 @@ function isWithinLastThreeMonths(isoString: string): boolean {
   return date >= threeMonthsAgo;
 }
 
-function calculateOnTimeRate(logs: ExchangeLog[]): number {
+function calculateOnTimeRate(logs: ExchangeRecord[]): number {
   if (logs.length === 0) return 100;
   const onTimeCount = logs.filter((log) => log.status === STATUS_ONTIME).length;
   return Math.round((onTimeCount / logs.length) * 100);
 }
 
-function buildExportText(logs: ExchangeLog[]): string {
+function buildExportText(logs: ExchangeRecord[]): string {
   const header = `CUSTODY EXCHANGE LOG\nGenerated: ${formatAbsoluteDate(new Date().toISOString())}\n`;
   const divider = "---";
 
@@ -164,7 +165,7 @@ function buildExportText(logs: ExchangeLog[]): string {
       `Exchange #${index + 1}`,
       `Date: ${formatAbsoluteDate(log.timestamp)}`,
       `Type: ${typeLabel}`,
-      `From: ${log.fromParent} → ${log.toParent}`,
+      `From: ${log.from_parent} → ${log.to_parent}`,
       `Children: ${childrenList}`,
       `Location: ${coordinates}`,
       `Status: ${statusLabel}`,
@@ -176,23 +177,6 @@ function buildExportText(logs: ExchangeLog[]): string {
   });
 
   return [header, ...entries].join("\n\n");
-}
-
-// ---------------------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------------------
-
-async function loadExchangeLogs(): Promise<ExchangeLog[]> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveExchangeLogs(logs: ExchangeLog[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +319,7 @@ function StatCard({
 }
 
 interface ExchangeCardProps {
-  log: ExchangeLog;
+  log: ExchangeRecord;
   colors: ReturnType<typeof useTheme>["colors"];
 }
 
@@ -375,7 +359,7 @@ function ExchangeCard({ log, colors }: ExchangeCardProps) {
 }
 
 interface ExchangeCardHeaderProps {
-  log: ExchangeLog;
+  log: ExchangeRecord;
   foregroundColor: string;
 }
 
@@ -399,7 +383,7 @@ function ExchangeCardHeader({ log, foregroundColor }: ExchangeCardHeaderProps) {
 }
 
 interface ExchangeCardMetaProps {
-  log: ExchangeLog;
+  log: ExchangeRecord;
   mutedColor: string;
 }
 
@@ -408,7 +392,7 @@ function ExchangeCardMeta({ log, mutedColor }: ExchangeCardMetaProps) {
     <View style={styles.cardMeta}>
       <Icon name="users" size={14} color={mutedColor} />
       <Text style={[styles.cardMetaText, { color: mutedColor }]}>
-        {log.fromParent} → {log.toParent}
+        {log.from_parent} → {log.to_parent}
       </Text>
     </View>
   );
@@ -434,7 +418,7 @@ function ExchangeCardChildren({
 }
 
 interface ExchangeCardNotesProps {
-  notes: string;
+  notes: string | null;
   mutedColor: string;
 }
 
@@ -574,7 +558,7 @@ function ToggleButton({
 interface CheckInModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (log: ExchangeLog) => void;
+  onSave: (data: ExchangeFormData) => void;
   latitude: number;
   longitude: number;
   accuracy: number;
@@ -603,20 +587,25 @@ function CheckInModal({
   const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"ontime" | "late">(STATUS_ONTIME);
+  const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      resetFormState();
-    }
-  }, [visible]);
-
-  function resetFormState() {
+  const resetFormState = useCallback(() => {
     setExchangeType(EXCHANGE_TYPE_DROPOFF);
     setIsHandingOff(true);
     setSelectedChildren([]);
     setNotes("");
     setStatus(STATUS_ONTIME);
-  }
+    setPhotoUrl(undefined);
+    setIsUploadingPhoto(false);
+  }, []);
+
+  // Reset form when modal becomes visible
+  React.useEffect(() => {
+    if (visible) {
+      resetFormState();
+    }
+  }, [visible, resetFormState]);
 
   function toggleChildSelection(childName: string) {
     setSelectedChildren((prev) =>
@@ -626,23 +615,24 @@ function CheckInModal({
     );
   }
 
-  function buildExchangeLog(): ExchangeLog {
+  function buildExchangeData(): ExchangeFormData {
     const fromParent = isHandingOff ? parentAName : parentBName;
     const toParent = isHandingOff ? parentBName : parentAName;
+    const trimmedNotes = notes.trim();
 
     return {
-      id: generateId(),
-      timestamp: new Date().toISOString(),
       type: exchangeType,
-      fromParent,
-      toParent,
+      from_parent: fromParent,
+      to_parent: toParent,
       children: selectedChildren,
       latitude,
       longitude,
       accuracy,
       address: `Lat: ${latitude.toFixed(4)}, Long: ${longitude.toFixed(4)}`,
+      timestamp: new Date().toISOString(),
       status,
-      notes: notes.trim(),
+      notes: trimmedNotes || undefined,
+      photo_url: photoUrl,
     };
   }
 
@@ -652,8 +642,32 @@ function CheckInModal({
       return;
     }
 
-    const log = buildExchangeLog();
-    onSave(log);
+    const data = buildExchangeData();
+    onSave(data);
+  }
+
+  function handleAttachPhoto() {
+    launchImageLibrary({ mediaType: "photo", quality: 0.8 }, async (response) => {
+      if (response.didCancel || !response.assets?.[0]) return;
+
+      const asset = response.assets[0];
+      if (!asset.uri || !asset.fileName || !asset.type) return;
+
+      setIsUploadingPhoto(true);
+      try {
+        const result = await uploadAttachment(asset.uri, asset.fileName, asset.type);
+        if (result) {
+          setPhotoUrl(result.url);
+          ReactNativeHapticFeedback.trigger("notificationSuccess");
+        } else {
+          Alert.alert("Upload Failed", "Could not upload the photo.");
+        }
+      } catch {
+        Alert.alert("Upload Error", "An error occurred while uploading.");
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    });
   }
 
   const directionLabel = isHandingOff
@@ -784,19 +798,40 @@ function CheckInModal({
             />
           </FormSection>
 
-          <FormSection label="Photo" colors={colors}>
-            <TouchableOpacity
-              style={[styles.photoButton, { borderColor: colors.border }]}
-              disabled
-              activeOpacity={0.5}
-              accessibilityRole="button"
-              accessibilityLabel="Attach photo (coming soon)"
-            >
-              <Icon name="camera" size={20} color={colors.mutedForeground} />
-              <Text style={[styles.photoButtonText, { color: colors.mutedForeground }]}>
-                Attach Photo (Coming Soon)
-              </Text>
-            </TouchableOpacity>
+          <FormSection label="Photo (Optional)" colors={colors}>
+            {photoUrl ? (
+              <View style={[styles.photoAttachedRow, { borderColor: colors.border }]}>
+                <Icon name="check-circle" size={18} color={colors.primary} />
+                <Text style={[styles.photoAttachedText, { color: colors.foreground }]}>
+                  Photo attached
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setPhotoUrl(undefined)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                >
+                  <Icon name="x" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.photoButton, { borderColor: colors.border }]}
+                onPress={handleAttachPhoto}
+                disabled={isUploadingPhoto}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Attach photo"
+              >
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color={colors.mutedForeground} />
+                ) : (
+                  <Icon name="camera" size={20} color={colors.mutedForeground} />
+                )}
+                <Text style={[styles.photoButtonText, { color: colors.mutedForeground }]}>
+                  {isUploadingPhoto ? "Uploading..." : "Attach Photo"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </FormSection>
 
           <FormSection label="Timestamp" colors={colors}>
@@ -876,9 +911,11 @@ export default function ExchangeTrackingScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
   const { data: childrenData = [] } = useChildren();
+  const { data: records = [], isLoading } = useExchangeRecords();
+  const createExchange = useCreateExchangeRecord();
 
-  const [logs, setLogs] = useState<ExchangeLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  useRefreshOnFocus(["exchanges"]);
+
   const [isLocating, setIsLocating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState<FilterOption>("all");
@@ -893,34 +930,23 @@ export default function ExchangeTrackingScreen() {
   const parentBName = user?.parent_b_name ?? "Parent B";
   const childrenNames = childrenData.map((child) => child.name);
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
-
-  async function loadLogs() {
-    setIsLoading(true);
-    const storedLogs = await loadExchangeLogs();
-    setLogs(storedLogs);
-    setIsLoading(false);
-  }
-
   const filteredLogs = useMemo(() => {
-    let result = [...logs];
+    let result = [...records];
 
     result = applyTypeFilter(result, filter);
     result = applyDateFilter(result, filter);
     result = applySortOrder(result, sortOrder);
 
     return result;
-  }, [logs, filter, sortOrder]);
+  }, [records, filter, sortOrder]);
 
   const summaryStats = useMemo(() => {
-    const totalExchanges = logs.length;
-    const onTimeRate = calculateOnTimeRate(logs);
-    const thisMonth = logs.filter((log) => isWithinCurrentMonth(log.timestamp)).length;
+    const totalExchanges = records.length;
+    const onTimeRate = calculateOnTimeRate(records);
+    const thisMonth = records.filter((r) => isWithinCurrentMonth(r.timestamp)).length;
 
     return { totalExchanges, onTimeRate, thisMonth };
-  }, [logs]);
+  }, [records]);
 
   function requestLocationAndOpenModal() {
     setIsLocating(true);
@@ -937,7 +963,7 @@ export default function ExchangeTrackingScreen() {
         setIsLocating(false);
         setShowModal(true);
       },
-      (error) => {
+      () => {
         setIsLocating(false);
         Alert.alert(
           "Location Error",
@@ -948,21 +974,25 @@ export default function ExchangeTrackingScreen() {
     );
   }
 
-  async function handleSaveExchange(newLog: ExchangeLog) {
-    const updatedLogs = [newLog, ...logs];
-    setLogs(updatedLogs);
-    await saveExchangeLogs(updatedLogs);
-    setShowModal(false);
-    ReactNativeHapticFeedback.trigger("notificationSuccess");
+  function handleSaveExchange(formData: ExchangeFormData) {
+    createExchange.mutate(formData, {
+      onSuccess: () => {
+        setShowModal(false);
+        ReactNativeHapticFeedback.trigger("notificationSuccess");
+      },
+      onError: () => {
+        Alert.alert("Save Failed", "Could not save the exchange record.");
+      },
+    });
   }
 
   async function handleExportLog() {
-    if (logs.length === 0) {
+    if (records.length === 0) {
       Alert.alert("No Data", "There are no exchanges to export.");
       return;
     }
 
-    const exportText = buildExportText(logs);
+    const exportText = buildExportText(records);
 
     try {
       await Share.share({
@@ -1234,27 +1264,27 @@ function FilterBar({ filter, onFilterChange, colors }: FilterBarProps) {
 // ---------------------------------------------------------------------------
 
 function applyTypeFilter(
-  logs: ExchangeLog[],
+  logs: ExchangeRecord[],
   filter: FilterOption,
-): ExchangeLog[] {
+): ExchangeRecord[] {
   if (filter === "dropoffs") return logs.filter((l) => l.type === EXCHANGE_TYPE_DROPOFF);
   if (filter === "pickups") return logs.filter((l) => l.type === EXCHANGE_TYPE_PICKUP);
   return logs;
 }
 
 function applyDateFilter(
-  logs: ExchangeLog[],
+  logs: ExchangeRecord[],
   filter: FilterOption,
-): ExchangeLog[] {
+): ExchangeRecord[] {
   if (filter === "month") return logs.filter((l) => isWithinCurrentMonth(l.timestamp));
   if (filter === "quarter") return logs.filter((l) => isWithinLastThreeMonths(l.timestamp));
   return logs;
 }
 
 function applySortOrder(
-  logs: ExchangeLog[],
+  logs: ExchangeRecord[],
   sortOrder: SortOption,
-): ExchangeLog[] {
+): ExchangeRecord[] {
   return logs.sort((a, b) => {
     const timeA = new Date(a.timestamp).getTime();
     const timeB = new Date(b.timestamp).getTime();
@@ -1592,9 +1622,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderStyle: "dashed",
-    opacity: 0.5,
   },
   photoButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  photoAttachedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  photoAttachedText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "500",
   },

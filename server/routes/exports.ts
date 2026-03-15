@@ -52,6 +52,10 @@ function buildDateRangeLabel(start: string, end: string): string {
   return `${start} to ${end}`;
 }
 
+function generateAuthCode(documentHash: string): string {
+  return "CP-" + documentHash.slice(0, 8).toUpperCase();
+}
+
 async function uploadToBlob(
   filename: string,
   buffer: Buffer,
@@ -75,6 +79,7 @@ async function logExport(
   dateRangeEnd: string,
   recordCount: number,
   documentHash: string,
+  authCode: string,
   filePath: string,
 ): Promise<void> {
   await db.insert(exportAuditLog).values({
@@ -162,6 +167,7 @@ export function registerExportRoutes(app: Express): void {
         records,
         familyName,
         dateRange,
+        generateAuthCode(documentHash),
       );
 
       const timestamp = Date.now();
@@ -176,6 +182,7 @@ export function registerExportRoutes(app: Express): void {
         endDate,
         records.length,
         documentHash,
+        generateAuthCode(documentHash),
         fileUrl,
       );
 
@@ -183,6 +190,7 @@ export function registerExportRoutes(app: Express): void {
         url: fileUrl,
         record_count: records.length,
         document_hash: documentHash,
+        authentication_code: generateAuthCode(documentHash),
         export_type: "messages",
         date_range: { start: startDate, end: endDate },
       });
@@ -262,6 +270,7 @@ export function registerExportRoutes(app: Express): void {
         records,
         familyName,
         dateRange,
+        generateAuthCode(documentHash),
       );
 
       const timestamp = Date.now();
@@ -276,6 +285,7 @@ export function registerExportRoutes(app: Express): void {
         endDate,
         records.length,
         documentHash,
+        generateAuthCode(documentHash),
         fileUrl,
       );
 
@@ -283,6 +293,7 @@ export function registerExportRoutes(app: Express): void {
         url: fileUrl,
         record_count: records.length,
         document_hash: documentHash,
+        authentication_code: generateAuthCode(documentHash),
         export_type: "expenses",
         date_range: { start: startDate, end: endDate },
       });
@@ -356,6 +367,7 @@ export function registerExportRoutes(app: Express): void {
         records,
         familyName,
         dateRange,
+        generateAuthCode(documentHash),
       );
 
       const timestamp = Date.now();
@@ -370,6 +382,7 @@ export function registerExportRoutes(app: Express): void {
         endDate,
         records.length,
         documentHash,
+        generateAuthCode(documentHash),
         fileUrl,
       );
 
@@ -377,6 +390,7 @@ export function registerExportRoutes(app: Express): void {
         url: fileUrl,
         record_count: records.length,
         document_hash: documentHash,
+        authentication_code: generateAuthCode(documentHash),
         export_type: "calendar",
         date_range: { start: startDate, end: endDate },
       });

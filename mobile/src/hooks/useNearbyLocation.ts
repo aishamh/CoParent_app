@@ -26,8 +26,8 @@ interface UseNearbyLocationReturn extends NearbyLocationState {
 // Constants
 // ---------------------------------------------------------------------------
 
-const GEOLOCATION_TIMEOUT_MS = 15_000;
-const MAXIMUM_AGE_MS = 60_000;
+const GEOLOCATION_TIMEOUT_MS = 10_000;
+const MAXIMUM_AGE_MS = 5 * 60_000; // Accept 5-min-old position for instant results
 
 // ---------------------------------------------------------------------------
 // Error handling helpers

@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Feather";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import { format, isToday, isYesterday, isSameDay, parseISO } from "date-fns";
+import { launchImageLibrary, launchCamera } from "react-native-image-picker";
 
 import { useAuth } from "../../auth/useAuth";
 import { useTheme } from "../../theme/useTheme";
@@ -27,10 +31,12 @@ import {
   useMarkAsRead,
   useUnreadCount,
 } from "../../hooks/useMessages";
-import { useFamilyMembers } from "../../hooks/useFamily";
+import { useFamilyMembers, useFamily } from "../../hooks/useFamily";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import { checkTone } from "../../api/toneCheck";
+import { uploadAttachment } from "../../api/photos";
 import ToneWarning from "../../components/messaging/ToneWarning";
+import { MessageListSkeleton } from "../../components/ui/SkeletonLayouts";
 import type { Message, ToneCheckResult } from "../../types/schema";
 import type { ColorPalette } from "../../constants/colors";
 
@@ -148,6 +154,8 @@ function MessageBubble({
   isRead,
   isGroupEnd,
   contentHash,
+  attachmentUrl,
+  attachmentType,
   colors,
 }: {
   content: string;
@@ -157,6 +165,8 @@ function MessageBubble({
   isRead: boolean;
   isGroupEnd: boolean;
   contentHash: string;
+  attachmentUrl: string | null;
+  attachmentType: string | null;
   colors: ColorPalette;
 }) {
   const bubbleBg = isMine ? colors.primary : colors.muted;
@@ -212,6 +222,23 @@ function MessageBubble({
           </Text>
         ) : null}
 
+        {attachmentUrl && attachmentType === "image" && !attachmentUrl.startsWith("data:") && (
+          <Image
+            source={{ uri: attachmentUrl }}
+            style={bubbleStyles.attachmentImage}
+            resizeMode="cover"
+          />
+        )}
+
+        {attachmentUrl && attachmentType === "file" && (
+          <View style={[bubbleStyles.fileAttachment, { backgroundColor: isMine ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)" }]}>
+            <Icon name="paperclip" size={14} color={textColor} />
+            <Text style={[bubbleStyles.fileText, { color: textColor }]} numberOfLines={1}>
+              Attachment
+            </Text>
+          </View>
+        )}
+
         <Text style={[bubbleStyles.text, { color: textColor }]}>{content}</Text>
 
         {isGroupEnd && (
@@ -251,6 +278,9 @@ const bubbleStyles = StyleSheet.create({
   noTail: { borderRadius: 18 },
   subject: { fontSize: 13, fontWeight: "700", marginBottom: 2 },
   text: { fontSize: 15, lineHeight: 21 },
+  attachmentImage: { width: "100%", height: 180, borderRadius: 10, marginBottom: 6 },
+  fileAttachment: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8, borderRadius: 8, marginBottom: 6 },
+  fileText: { fontSize: 13, fontWeight: "500" },
   meta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
   metaSent: { justifyContent: "flex-end" },
   metaReceived: { justifyContent: "flex-start" },
@@ -384,11 +414,54 @@ const rowStyles = StyleSheet.create({
 
 function EmptyConversations({
   onCompose,
+  hasCoParent,
+  inviteCode,
   colors,
 }: {
   onCompose: () => void;
+  hasCoParent: boolean;
+  inviteCode: string;
   colors: ColorPalette;
 }) {
+  // Show different UI based on whether user has a connected co-parent
+  if (!hasCoParent) {
+    return (
+      <View style={emptyStyles.container}>
+        <View style={[emptyStyles.iconCircle, { backgroundColor: colors.accent }]}>
+          <Icon name="users" size={40} color={colors.primary} />
+        </View>
+        <Text style={[emptyStyles.title, { color: colors.foreground }]}>
+          Connect with Your Co-Parent
+        </Text>
+        <Text style={[emptyStyles.subtitle, { color: colors.mutedForeground }]}>
+          Before you can send messages, you need to invite your co-parent to join your family. Share the invite code below or ask them to enter it in their app.
+        </Text>
+        <View style={[emptyStyles.codeBox, { borderColor: colors.primary, backgroundColor: colors.accent }]}>
+          <Text style={[emptyStyles.codeLabel, { color: colors.mutedForeground }]}>Your Invite Code</Text>
+          <Text style={[emptyStyles.codeText, { color: colors.primary }]}>{inviteCode || "Loading..."}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            ReactNativeHapticFeedback.trigger("impactLight");
+            if (inviteCode) {
+              Share.share({
+                message: `Join our family on CoParent Connect! Use invite code: ${inviteCode}`,
+              });
+            }
+          }}
+          style={[emptyStyles.btn, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Share Invite Code"
+        >
+          <Icon name="share-2" size={16} color={colors.primaryForeground} />
+          <Text style={[emptyStyles.btnText, { color: colors.primaryForeground }]}>
+            Share Invite Code
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={emptyStyles.container}>
       <View style={[emptyStyles.iconCircle, { backgroundColor: colors.accent }]}>
@@ -441,6 +514,29 @@ const emptyStyles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  codeBox: {
+    width: "100%",
+    maxWidth: 280,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  codeLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  codeText: {
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: 3,
   },
   btn: {
     flexDirection: "row",
@@ -459,17 +555,21 @@ function ComposerBar({
   value,
   onChangeText,
   onSend,
+  onAttach,
   isSending,
+  isUploading,
   colors,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
+  onAttach: () => void;
   isSending: boolean;
+  isUploading: boolean;
   colors: ColorPalette;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const canSend = value.trim().length > 0 && !isSending;
+  const canSend = value.trim().length > 0 && !isSending && !isUploading;
   const countColor = charCountColor(value.length, colors);
 
   const handleSend = () => {
@@ -487,6 +587,19 @@ function ComposerBar({
       ]}
     >
       <View style={composerStyles.inputRow}>
+        <TouchableOpacity
+          onPress={onAttach}
+          disabled={isUploading}
+          style={composerStyles.attachBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Attach photo or file"
+        >
+          {isUploading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Icon name="paperclip" size={20} color={colors.primary} />
+          )}
+        </TouchableOpacity>
         <TextInput
           ref={inputRef}
           style={[
@@ -548,7 +661,8 @@ const composerStyles = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+  attachBtn: { width: 36, height: 40, justifyContent: "center", alignItems: "center" },
   input: {
     flex: 1,
     minHeight: 40,
@@ -659,6 +773,7 @@ export default function MessagesScreen() {
   const { colors } = useTheme();
   const { data: apiMessages = [], isLoading, refetch } = useMessages();
   const { data: familyMembers = [] } = useFamilyMembers();
+  const { data: family } = useFamily();
   const { data: totalUnread = 0 } = useUnreadCount();
   const sendMessageMutation = useSendMessage();
   const markReadMutation = useMarkAsRead();
@@ -764,7 +879,7 @@ export default function MessagesScreen() {
         !m.is_read,
     );
     for (const msg of unread) {
-      markReadMutation.mutate(Number(msg.id));
+      markReadMutation.mutate(msg.id);
     }
   }, [selectedConversationId, apiMessages, myId]);
 
@@ -786,13 +901,22 @@ export default function MessagesScreen() {
     setSelectedConversationId(null);
   }, []);
 
-  const sendMessageDirectly = useCallback((text: string) => {
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    url: string;
+    type: "image" | "file";
+  } | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+
+  const sendMessageDirectly = useCallback((text: string, attachment?: { url: string; type: "image" | "file" }) => {
     if (!coParent) return;
     sendMessageMutation.mutate({
-      receiver_id: Number(coParent.id),
+      receiver_id: coParent.id,
       content: text,
+      attachment_url: attachment?.url,
+      attachment_type: attachment?.type,
     });
     setMessageInput("");
+    setPendingAttachment(null);
     setShowToneWarning(false);
     setToneResult(null);
     setTimeout(() => {
@@ -813,8 +937,58 @@ export default function MessagesScreen() {
       return; // Don't send yet — show warning
     }
 
-    sendMessageDirectly(text);
-  }, [messageInput, selectedConversationId, coParent, sendMessageDirectly]);
+    sendMessageDirectly(text, pendingAttachment ?? undefined);
+  }, [messageInput, selectedConversationId, coParent, sendMessageDirectly, pendingAttachment]);
+
+  const handleAttach = useCallback(() => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Take Photo", "Choose from Library"],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) handleCameraAttach();
+          else if (buttonIndex === 2) handleLibraryAttach();
+        },
+      );
+    } else {
+      handleLibraryAttach();
+    }
+  }, []);
+
+  const handleCameraAttach = useCallback(() => {
+    launchCamera({ mediaType: "photo", quality: 0.8 }, async (response) => {
+      if (response.didCancel || response.errorCode) return;
+      const asset = response.assets?.[0];
+      if (!asset?.uri) return;
+      await performAttachmentUpload(asset.uri, asset.fileName || "photo.jpg", asset.type || "image/jpeg");
+    });
+  }, []);
+
+  const handleLibraryAttach = useCallback(() => {
+    launchImageLibrary({ mediaType: "photo", quality: 0.8 }, async (response) => {
+      if (response.didCancel || response.errorCode) return;
+      const asset = response.assets?.[0];
+      if (!asset?.uri) return;
+      await performAttachmentUpload(asset.uri, asset.fileName || "photo.jpg", asset.type || "image/jpeg");
+    });
+  }, []);
+
+  const performAttachmentUpload = useCallback(async (uri: string, name: string, type: string) => {
+    setIsUploadingAttachment(true);
+    try {
+      const result = await uploadAttachment(uri, name, type);
+      if (result) {
+        setPendingAttachment({ url: result.url, type: result.type });
+        ReactNativeHapticFeedback.trigger("notificationSuccess");
+      } else {
+        Alert.alert("Error", "Failed to upload attachment.");
+      }
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }, []);
 
   const handleScrollToBottom = useCallback(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -890,13 +1064,20 @@ export default function MessagesScreen() {
           <TouchableOpacity
             onPress={() => {
               ReactNativeHapticFeedback.trigger("impactLight");
-              if (coParent) handleSelectConversation(coParent.id);
+              if (coParent) {
+                handleSelectConversation(coParent.id);
+              } else if (family?.invite_code) {
+                // No co-parent yet - share invite code
+                Share.share({
+                  message: `Join our family on CoParent Connect! Use invite code: ${family.invite_code}`,
+                });
+              }
             }}
             style={styles.composeBtn}
             accessibilityRole="button"
-            accessibilityLabel="New message"
+            accessibilityLabel={coParent ? "New message" : "Invite co-parent"}
           >
-            <Icon name="edit-3" size={18} color={colors.primaryForeground} />
+            <Icon name={coParent ? "edit-3" : "user-plus"} size={18} color={colors.primaryForeground} />
           </TouchableOpacity>
         </View>
 
@@ -925,14 +1106,14 @@ export default function MessagesScreen() {
 
       {/* Conversation list */}
       {isLoading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <MessageListSkeleton />
       ) : filteredConversations.length === 0 ? (
         <EmptyConversations
           onCompose={() => {
             if (coParent) handleSelectConversation(coParent.id);
           }}
+          hasCoParent={!!coParent}
+          inviteCode={family?.invite_code || ""}
           colors={colors}
         />
       ) : (
@@ -995,6 +1176,8 @@ export default function MessagesScreen() {
             isRead={item.is_read}
             isGroupEnd={groupEnd}
             contentHash={item.content_hash}
+            attachmentUrl={item.attachment_url}
+            attachmentType={item.attachment_type}
             colors={colors}
           />
           {showDateDivider && <DateDivider date={msgDate} colors={colors} />}
@@ -1138,17 +1321,27 @@ export default function MessagesScreen() {
             setToneResult(null);
           }}
           onSendAnyway={() => {
-            sendMessageDirectly(messageInput.trim());
+            sendMessageDirectly(messageInput.trim(), pendingAttachment ?? undefined);
           }}
         />
       )}
 
       {/* Composer */}
+      {pendingAttachment && (
+        <View style={[attachStyles.preview, { backgroundColor: colors.muted, borderTopColor: colors.border }]}>
+          <Image source={{ uri: pendingAttachment.url }} style={attachStyles.previewImage} resizeMode="cover" />
+          <TouchableOpacity onPress={() => setPendingAttachment(null)} style={attachStyles.previewRemove}>
+            <Icon name="x-circle" size={20} color={colors.destructive || "#dc2626"} />
+          </TouchableOpacity>
+        </View>
+      )}
       <ComposerBar
         value={messageInput}
         onChangeText={setMessageInput}
         onSend={handleSendMessage}
+        onAttach={handleAttach}
         isSending={sendMessageMutation.isPending}
+        isUploading={isUploadingAttachment}
         colors={colors}
       />
     </View>
@@ -1177,6 +1370,17 @@ export default function MessagesScreen() {
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
+
+const attachStyles = StyleSheet.create({
+  preview: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  previewImage: { width: 60, height: 60, borderRadius: 8 },
+  previewRemove: { marginLeft: 8 },
+});
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -1320,12 +1524,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
-  },
-
-  // -- Loader --
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
 });

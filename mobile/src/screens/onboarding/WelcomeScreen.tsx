@@ -1,7 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import Icon from "react-native-vector-icons/Feather";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 
 import { useTheme } from "../../theme/useTheme";
@@ -25,15 +24,11 @@ export default function WelcomeScreen() {
         <ProgressDots total={4} current={0} />
 
         <View style={styles.content}>
-          <View
-            style={[styles.iconCircle, { backgroundColor: colors.primary }]}
-          >
-            <Icon
-              name="heart"
-              size={48}
-              color={colors.primaryForeground}
-            />
-          </View>
+          <Image
+            source={require("../../assets/app-icon.png")}
+            style={styles.appLogo}
+            accessibilityLabel="CoParent Connect logo"
+          />
 
           <Text style={[styles.title, { color: colors.foreground }]}>
             Welcome to CoParent Connect
@@ -68,12 +63,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
+  appLogo: {
+    width: 120,
+    height: 120,
+    borderRadius: 28,
     marginBottom: 32,
   },
   title: {

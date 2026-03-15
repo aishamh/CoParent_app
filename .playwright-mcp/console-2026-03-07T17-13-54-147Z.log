@@ -1,0 +1,15 @@
+[    3864ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/rest/v1/events?select=*&order=created_at.desc:0
+[    3864ms] [ERROR] Error fetching events: {message: TypeError: Failed to fetch, details: TypeError: Failed to fetch
+    at https://coparent…p.netlify.app/assets/index-qlv9-bgC.js:108:33583), hint: , code: } @ https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:107
+[    3865ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/rest/v1/children?select=*&order=created_at.desc:0
+[    4104ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://images.unsplash.com/photo-1556910103-1c02745a30bf?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3:0
+[   17916ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://images.unsplash.com/photo-1556910103-1c02745a30bf?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3:0
+[   17961ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://images.unsplash.com/photo-1556910103-1c02745a30bf?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3:0
+[   51108ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://images.unsplash.com/photo-1590870753986-59a8eb8cf72d?w=800&h=600&fit=crop:0
+[   51119ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://images.unsplash.com/photo-1566454825481-9c31bd88c36f?w=800&h=600&fit=crop:0
+[   61473ms] [ERROR] `DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog @ https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:94
+[   61473ms] [WARNING] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. @ https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:94

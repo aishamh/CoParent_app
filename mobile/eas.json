@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "projectId": "coparent-connect"
+  "appName": "CoParent Connect"
+  "version": "1.1.0"
+    "android": {
+      "build": "eas"
+      "ios": {
+        "build": "eas",
+        "simulator": {
+          "configuration": "Release"
+        },
+        "build": {
+          "developmentClient": "eas",
+          "distribution": "eas"
+        }
+      }
+    },
+    "submit": {
+      "production": "eas"
+    }
+  }
+  }
+  "extra": {
+    "eas": {
+      "projectId": "coparent-connect",
+      "experimental": "eas-build-and-submit"
+    }
+  }
+}

@@ -6,8 +6,8 @@ import { createHash } from "crypto";
 // ============================================================
 // Generates tamper-evident PDFs with SHA-256 integrity hashes
 // for messages, expenses, and calendar records.
-// Each document includes per-record hashes and a document-level
-// hash for independent verification.
+// Each document includes per-record hashes, a document-level
+// hash, and an authentication code for court verification.
 // ============================================================
 
 const MAX_RECORDS_PER_EXPORT = 5000;
@@ -64,6 +64,7 @@ function addHeader(
   title: string,
   familyName: string,
   dateRange: string,
+  authCode?: string,
 ): void {
   doc
     .fontSize(18)
@@ -75,14 +76,26 @@ function addHeader(
     .font("Helvetica")
     .text(`Family: ${familyName}`, { align: "center" })
     .text(`Date Range: ${dateRange}`, { align: "center" })
-    .text(`Generated: ${new Date().toISOString()}`, { align: "center" })
-    .moveDown(2);
+    .text(`Generated: ${new Date().toISOString()}`, { align: "center" });
+
+  if (authCode) {
+    doc
+      .moveDown(0.5)
+      .fontSize(9)
+      .font("Helvetica-Bold")
+      .fillColor("#DC2626")
+      .text(`Authentication Code: ${authCode}`, { align: "center" })
+      .fillColor("black");
+  }
+
+  doc.moveDown(2);
 }
 
 function addFooter(
   doc: PDFKit.PDFDocument,
   documentHash: string,
   recordCount: number,
+  authCode?: string,
 ): void {
   doc
     .moveDown(2)
@@ -94,11 +107,16 @@ function addFooter(
       `This document contains ${recordCount} records exported from CoParent Connect.`,
       { align: "center" },
     )
-    .text(`Document Hash (SHA-256): ${documentHash}`, { align: "center" })
-    .text(
-      "Each message includes its individual content hash for independent verification.",
-      { align: "center" },
-    )
+    .text(`Document Hash (SHA-256): ${documentHash}`, { align: "center" });
+
+  if (authCode) {
+    doc.text(`Authentication Code: ${authCode}`, { align: "center" });
+  }
+
+  doc.text(
+    "Each message includes its individual content hash for independent verification.",
+    { align: "center" },
+  )
     .text(
       `Generated on ${new Date().toISOString()} \u2014 This export is uneditable and court-admissible.`,
       { align: "center" },
@@ -139,12 +157,13 @@ export async function generateMessageExportPdf(
   records: MessageRecord[],
   familyName: string,
   dateRange: string,
+  authCode?: string,
 ): Promise<PdfGenerationResult> {
   const capped = records.slice(0, MAX_RECORDS_PER_EXPORT);
   const doc = new PDFDocument({ margin: 50, size: "A4" });
   const bufferPromise = collectPdfBuffer(doc);
 
-  addHeader(doc, "Message Export \u2014 Court Record", familyName, dateRange);
+  addHeader(doc, "Message Export \u2014 Court Record", familyName, dateRange, authCode);
 
   const hashInputs: string[] = [];
 
@@ -165,7 +184,7 @@ export async function generateMessageExportPdf(
   }
 
   const documentHash = computeDocumentHash(hashInputs);
-  addFooter(doc, documentHash, capped.length);
+  addFooter(doc, documentHash, capped.length, authCode);
   doc.end();
 
   const buffer = await bufferPromise;
@@ -180,12 +199,13 @@ export async function generateExpenseReportPdf(
   records: ExpenseRecord[],
   familyName: string,
   dateRange: string,
+  authCode?: string,
 ): Promise<PdfGenerationResult> {
   const capped = records.slice(0, MAX_RECORDS_PER_EXPORT);
   const doc = new PDFDocument({ margin: 50, size: "A4" });
   const bufferPromise = collectPdfBuffer(doc);
 
-  addHeader(doc, "Expense Report", familyName, dateRange);
+  addHeader(doc, "Expense Report", familyName, dateRange, authCode);
 
   const hashInputs: string[] = [];
   let totalAmount = 0;
@@ -218,7 +238,7 @@ export async function generateExpenseReportPdf(
     .text(`Total: $${totalAmount.toFixed(2)}`, { align: "right" });
 
   const documentHash = computeDocumentHash(hashInputs);
-  addFooter(doc, documentHash, capped.length);
+  addFooter(doc, documentHash, capped.length, authCode);
   doc.end();
 
   const buffer = await bufferPromise;
@@ -233,12 +253,13 @@ export async function generateCalendarSummaryPdf(
   records: CalendarRecord[],
   familyName: string,
   dateRange: string,
+  authCode?: string,
 ): Promise<PdfGenerationResult> {
   const capped = records.slice(0, MAX_RECORDS_PER_EXPORT);
   const doc = new PDFDocument({ margin: 50, size: "A4" });
   const bufferPromise = collectPdfBuffer(doc);
 
-  addHeader(doc, "Calendar Summary", familyName, dateRange);
+  addHeader(doc, "Calendar Summary", familyName, dateRange, authCode);
 
   const hashInputs: string[] = [];
 
@@ -262,7 +283,7 @@ export async function generateCalendarSummaryPdf(
   }
 
   const documentHash = computeDocumentHash(hashInputs);
-  addFooter(doc, documentHash, capped.length);
+  addFooter(doc, documentHash, capped.length, authCode);
   doc.end();
 
   const buffer = await bufferPromise;

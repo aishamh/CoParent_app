@@ -19,10 +19,13 @@ import type { PlaceActivity } from "../data/activities";
 // Constants
 // ---------------------------------------------------------------------------
 
-const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
-const OVERPASS_TIMEOUT_SECONDS = 20;
-const CLIENT_TIMEOUT_MS = 20_000;
-const MAX_OSM_RESULTS = 60;
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+const OVERPASS_TIMEOUT_SECONDS = 8;
+const CLIENT_TIMEOUT_MS = 8_000;
+const MAX_OSM_RESULTS = 40;
 
 // ---------------------------------------------------------------------------
 // App category type (mirrors server/data/activities.ts)
@@ -295,7 +298,7 @@ interface CacheEntry {
   timestamp: number;
 }
 
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes — venues don't change often
 const queryCache = new Map<string, CacheEntry>();
 
 function buildCacheKey(
@@ -304,8 +307,9 @@ function buildCacheKey(
   radiusMeters: number,
   category?: string,
 ): string {
-  const roundedLat = Math.round(lat * 1000) / 1000;
-  const roundedLng = Math.round(lng * 1000) / 1000;
+  // Round to 2 decimals (~1.1 km) for broader cache hits when user moves slightly
+  const roundedLat = Math.round(lat * 100) / 100;
+  const roundedLng = Math.round(lng * 100) / 100;
   return `${roundedLat},${roundedLng},${radiusMeters},${category ?? "all"}`;
 }
 
@@ -346,22 +350,26 @@ export async function fetchOverpassActivities(
   if (!query) return [];
 
   try {
+    // Race multiple Overpass endpoints — first successful response wins
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+    const body = `data=${encodeURIComponent(query)}`;
 
-    const response = await fetch(OVERPASS_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: controller.signal,
-    });
+    const response = await Promise.any(
+      OVERPASS_ENDPOINTS.map((url) =>
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+          signal: controller.signal,
+        }).then((r) => {
+          if (!r.ok) throw new Error(`Status ${r.status}`);
+          return r;
+        }),
+      ),
+    );
 
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Overpass API returned status ${response.status}`);
-      return [];
-    }
 
     const data = (await response.json()) as OverpassResponse;
 

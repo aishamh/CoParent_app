@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   FlatList,
   Linking,
@@ -23,6 +22,7 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { formatShortDate } from "../utils/formatDate";
 import ExpenseForm from "../components/forms/ExpenseForm";
 import Card from "../components/ui/Card";
+import { ExpenseListSkeleton } from "../components/ui/SkeletonLayouts";
 import type { Expense } from "../types/schema";
 
 type StatusFilter = "all" | "pending" | "approved" | "reimbursed";
@@ -378,9 +378,7 @@ export default function ExpensesScreen() {
       </ScrollView>
 
       {isLoading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ExpenseListSkeleton />
       ) : expenses.length === 0 ? (
         <EmptyExpenses />
       ) : (
@@ -470,11 +468,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: "500",
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   list: {
     paddingHorizontal: 24,

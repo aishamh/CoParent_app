@@ -1,7 +1,8 @@
 import { type Express } from "express";
 import { db } from "../db";
 import { custodySchedules, custodySwapRequests, events } from "../tables";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { subDays, eachDayOfInterval, parseISO, format } from "date-fns";
 import { requireAuth } from "../auth";
 import {
   insertCustodyScheduleSchema,
@@ -126,6 +127,77 @@ export function registerCustodyRoutes(app: Express): void {
     } catch (error) {
       console.error("[Custody] List schedules error:", error);
       res.status(500).json({ error: "Failed to load custody schedules" });
+    }
+  });
+
+  // --- Parenting time calculator (last 30 days) ---
+
+  app.get("/api/custody/parenting-time", requireAuth, async (req, res) => {
+    try {
+      const familyId: string = (req as any).familyId;
+      const today = new Date();
+      const periodStart = subDays(today, 30);
+      const periodStartStr = format(periodStart, "yyyy-MM-dd");
+      const periodEndStr = format(today, "yyyy-MM-dd");
+
+      const custodyEvents = await db
+        .select()
+        .from(events)
+        .where(
+          and(
+            eq(events.family_id, familyId),
+            eq(events.type, "custody"),
+            gte(events.start_date, periodStartStr)
+          )
+        );
+
+      const schedules = await db
+        .select()
+        .from(custodySchedules)
+        .where(eq(custodySchedules.family_id, familyId));
+
+      const parentAIds = new Set(
+        schedules.map((s) => s.parent_a_id)
+      );
+
+      let parentADays = 0;
+      let parentBDays = 0;
+
+      for (const event of custodyEvents) {
+        const start = parseISO(event.start_date);
+        const end = parseISO(event.end_date);
+        const daysInRange = eachDayOfInterval({ start, end });
+
+        const daysInPeriod = daysInRange.filter((d) => d >= periodStart && d <= today);
+        const dayCount = daysInPeriod.length;
+
+        if (parentAIds.has(event.parent)) {
+          parentADays += dayCount;
+        } else {
+          parentBDays += dayCount;
+        }
+      }
+
+      const totalDays = parentADays + parentBDays;
+      const parentAPercent = totalDays > 0
+        ? Math.round((parentADays / totalDays) * 100)
+        : 0;
+      const parentBPercent = totalDays > 0
+        ? Math.round((parentBDays / totalDays) * 100)
+        : 0;
+
+      res.json({
+        parent_a_days: parentADays,
+        parent_b_days: parentBDays,
+        parent_a_percent: parentAPercent,
+        parent_b_percent: parentBPercent,
+        total_days: totalDays,
+        period_start: periodStartStr,
+        period_end: periodEndStr,
+      });
+    } catch (error) {
+      console.error("[Custody] Parenting time calculation error:", error);
+      res.status(500).json({ error: "Failed to calculate parenting time" });
     }
   });
 

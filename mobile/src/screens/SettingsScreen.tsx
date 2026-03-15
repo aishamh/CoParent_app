@@ -16,12 +16,20 @@ import Icon from "react-native-vector-icons/Feather";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { format, parseISO } from "date-fns";
+
 import { useAuth } from "../auth/useAuth";
 import { useTheme } from "../theme/useTheme";
 import { fetchApi } from "../api/client";
 import { imageCache } from "../services/imageCache";
 import { updateNotificationPreferences } from "../api/notifications";
+import {
+  getSupportedBiometry,
+  isBiometricEnabled,
+  setBiometricEnabled,
+} from "../auth/tokenStorage";
 import type { ThemeMode } from "../theme/ThemeContext";
+import type { LoginHistoryEntry } from "../types/schema";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -239,6 +247,12 @@ export default function SettingsScreen() {
   const [cachedCount, setCachedCount] = useState<number>(0);
   const [clearingCache, setClearingCache] = useState(false);
 
+  // Security / biometric state
+  const [biometryType, setBiometryType] = useState<string | null>(null);
+  const [biometricOn, setBiometricOn] = useState(false);
+  const [loginHistoryData, setLoginHistoryData] = useState<LoginHistoryEntry[]>([]);
+  const [showLoginHistory, setShowLoginHistory] = useState(false);
+
   // -------------------------------------------------------------------------
   // Load persisted data on mount
   // -------------------------------------------------------------------------
@@ -247,6 +261,11 @@ export default function SettingsScreen() {
     loadPersistedPreferences();
     loadParentNamesFromApi();
     refreshCacheInfo();
+  }, []);
+
+  useEffect(() => {
+    getSupportedBiometry().then(setBiometryType);
+    isBiometricEnabled().then(setBiometricOn);
   }, []);
 
   async function loadPersistedPreferences(): Promise<void> {
@@ -502,6 +521,32 @@ export default function SettingsScreen() {
       setClearingCache(false);
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Biometric toggle
+  // -------------------------------------------------------------------------
+
+  const handleBiometricToggle = useCallback(async (value: boolean) => {
+    await setBiometricEnabled(value);
+    setBiometricOn(value);
+    ReactNativeHapticFeedback.trigger("selection");
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Login history
+  // -------------------------------------------------------------------------
+
+  const handleShowLoginHistory = useCallback(async () => {
+    try {
+      const result = await fetchApi<{ data: LoginHistoryEntry[] }>(
+        "/api/auth/login-history",
+      );
+      setLoginHistoryData(result?.data ?? []);
+      setShowLoginHistory(true);
+    } catch {
+      Alert.alert("Error", "Could not load login history.");
+    }
+  }, []);
 
   // -------------------------------------------------------------------------
   // Delete account
@@ -1054,6 +1099,52 @@ export default function SettingsScreen() {
               color={colors.mutedForeground}
             />
           </TouchableOpacity>
+
+          {biometryType ? (
+            <>
+              <Divider />
+              <View style={styles.row}>
+                <View style={styles.rowLeft}>
+                  <Icon name="shield" size={20} color={colors.foreground} />
+                  <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                    {biometryType === "FaceID" ? "Use Face ID" : "Use Touch ID"}
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricOn}
+                  onValueChange={handleBiometricToggle}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.primaryForeground}
+                  accessibilityLabel={
+                    biometryType === "FaceID"
+                      ? "Toggle Face ID"
+                      : "Toggle Touch ID"
+                  }
+                />
+              </View>
+            </>
+          ) : null}
+
+          <Divider />
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleShowLoginHistory}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="View Login History"
+          >
+            <View style={styles.rowLeft}>
+              <Icon name="clock" size={20} color={colors.foreground} />
+              <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                Login History
+              </Text>
+            </View>
+            <Icon
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
         </SectionCard>
 
         {/* ----------------------------------------------------------------
@@ -1526,8 +1617,159 @@ export default function SettingsScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* ==================================================================
+          Login History Modal
+      ================================================================== */}
+      <Modal
+        visible={showLoginHistory}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLoginHistory(false)}
+      >
+        <SafeAreaView
+          style={[styles.modalSafe, { backgroundColor: colors.background }]}
+        >
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowLoginHistory(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close login history"
+            >
+              <Text style={[styles.modalCancel, { color: colors.primary }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              Login History
+            </Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            {loginHistoryData.length === 0 ? (
+              <Text
+                style={[
+                  styles.modalDescription,
+                  { color: colors.mutedForeground, textAlign: "center" },
+                ]}
+              >
+                No login history available.
+              </Text>
+            ) : (
+              loginHistoryData.slice(0, 20).map((entry) => {
+                const iconConfig = getLoginEventIcon(entry.event_type);
+                const formattedDate = formatLoginDate(entry.created_at);
+                const partialIp = maskIpAddress(entry.ip_address);
+
+                return (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.loginHistoryRow,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.loginHistoryIcon,
+                        { backgroundColor: `${iconConfig.color}18` },
+                      ]}
+                    >
+                      <Icon
+                        name={iconConfig.name}
+                        size={18}
+                        color={iconConfig.color}
+                      />
+                    </View>
+                    <View style={styles.loginHistoryContent}>
+                      <Text
+                        style={[
+                          styles.loginHistoryEvent,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {formatEventLabel(entry.event_type)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.loginHistoryMeta,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {formattedDate}
+                        {partialIp ? ` \u00B7 ${partialIp}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Login history helpers
+// ---------------------------------------------------------------------------
+
+interface EventIconConfig {
+  name: string;
+  color: string;
+}
+
+function getLoginEventIcon(eventType: string): EventIconConfig {
+  switch (eventType) {
+    case "login":
+      return { name: "log-in", color: "#22C55E" };
+    case "logout":
+      return { name: "log-out", color: "#6B7280" };
+    case "login_failed":
+      return { name: "x-circle", color: "#EF4444" };
+    case "session_restored":
+      return { name: "refresh-cw", color: "#3B82F6" };
+    case "password_changed":
+      return { name: "key", color: "#F59E0B" };
+    default:
+      return { name: "activity", color: "#6B7280" };
+  }
+}
+
+function formatEventLabel(eventType: string): string {
+  switch (eventType) {
+    case "login":
+      return "Signed In";
+    case "logout":
+      return "Signed Out";
+    case "login_failed":
+      return "Failed Login Attempt";
+    case "session_restored":
+      return "Session Restored";
+    case "password_changed":
+      return "Password Changed";
+    default:
+      return eventType;
+  }
+}
+
+function formatLoginDate(isoString: string): string {
+  try {
+    return format(parseISO(isoString), "MMM d, yyyy 'at' h:mm a");
+  } catch {
+    return isoString;
+  }
+}
+
+function maskIpAddress(ip: string | null): string {
+  if (!ip) return "";
+  const parts = ip.split(".");
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.*.*`;
+  }
+  return ip.slice(0, Math.ceil(ip.length / 2)) + "***";
 }
 
 // ---------------------------------------------------------------------------
@@ -1775,6 +2017,34 @@ const styles = StyleSheet.create({
   pickerOptionText: {
     fontSize: 16,
     fontWeight: "500",
+  },
+
+  // Login history
+  loginHistoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  loginHistoryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginHistoryContent: {
+    flex: 1,
+  },
+  loginHistoryEvent: {
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  loginHistoryMeta: {
+    fontSize: 13,
+    marginTop: 2,
   },
 
   // Bottom spacer

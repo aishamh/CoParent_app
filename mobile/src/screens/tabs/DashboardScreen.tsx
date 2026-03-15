@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,8 +18,11 @@ import { useTheme } from "../../theme/useTheme";
 import { useChildren } from "../../hooks/useChildren";
 import { useEvents, useCreateEvent } from "../../hooks/useEvents";
 import { useExpenses } from "../../hooks/useExpenses";
+import { useParentingTime } from "../../hooks/useCustody";
+import { useSchoolSummary } from "../../hooks/useSchool";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import Card from "../../components/ui/Card";
+import { DashboardSkeleton } from "../../components/ui/SkeletonLayouts";
 import type { Event } from "../../types/schema";
 
 // ---------------------------------------------------------------------------
@@ -175,6 +177,73 @@ function CustodyStatusSection({
         </Text>
       </Card>
     </View>
+  );
+}
+
+function ParentingTimeCard({
+  parentingTime,
+  colors,
+  parentALabel,
+  parentBLabel,
+}: {
+  parentingTime: { parent_a_percent: number; parent_b_percent: number; total_days: number } | null | undefined;
+  colors: ReturnType<typeof useTheme>["colors"];
+  parentALabel: string;
+  parentBLabel: string;
+}) {
+  if (!parentingTime || parentingTime.total_days === 0) {
+    return (
+      <Card style={parentingTimeStyles.card}>
+        <View style={parentingTimeStyles.header}>
+          <Icon name="clock" size={16} color={colors.primary} />
+          <Text style={[parentingTimeStyles.title, { color: colors.foreground }]}>
+            Parenting Time
+          </Text>
+        </View>
+        <Text style={[parentingTimeStyles.emptyText, { color: colors.mutedForeground }]}>
+          No custody data yet
+        </Text>
+      </Card>
+    );
+  }
+
+  const parentAPercent = Math.round(parentingTime.parent_a_percent);
+  const parentBPercent = Math.round(parentingTime.parent_b_percent);
+
+  return (
+    <Card style={parentingTimeStyles.card}>
+      <View style={parentingTimeStyles.header}>
+        <Icon name="clock" size={16} color={colors.primary} />
+        <Text style={[parentingTimeStyles.title, { color: colors.foreground }]}>
+          Parenting Time
+        </Text>
+      </View>
+      <Text style={[parentingTimeStyles.subtitle, { color: colors.mutedForeground }]}>
+        Last 30 days
+      </Text>
+      <View style={parentingTimeStyles.labelsRow}>
+        <Text style={[parentingTimeStyles.label, { color: colors.foreground }]}>
+          {parentALabel}: {parentAPercent}%
+        </Text>
+        <Text style={[parentingTimeStyles.label, { color: colors.foreground }]}>
+          {parentBLabel}: {parentBPercent}%
+        </Text>
+      </View>
+      <View style={parentingTimeStyles.barContainer}>
+        <View
+          style={[
+            parentingTimeStyles.barSegment,
+            { flex: parentAPercent, backgroundColor: "#5EEAD4", borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
+          ]}
+        />
+        <View
+          style={[
+            parentingTimeStyles.barSegment,
+            { flex: parentBPercent, backgroundColor: "#FB923C", borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+          ]}
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -410,6 +479,95 @@ function QuickAddRow({
 }
 
 // ---------------------------------------------------------------------------
+// School Summary Widget
+// ---------------------------------------------------------------------------
+
+function SchoolSummaryCard({
+  colors,
+  onPress,
+}: {
+  colors: ReturnType<typeof useTheme>["colors"];
+  onPress: () => void;
+}) {
+  const { data: summary } = useSchoolSummary();
+
+  if (!summary || summary.connected_schools === 0) return null;
+
+  const hasOverdue = summary.overdue_homework > 0;
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <Card style={schoolWidgetStyles.card}>
+        <View style={schoolWidgetStyles.header}>
+          <View style={schoolWidgetStyles.headerLeft}>
+            <Text style={schoolWidgetStyles.headerEmoji}>🏫</Text>
+            <Text style={[schoolWidgetStyles.title, { color: colors.foreground }]}>
+              School
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
+        </View>
+        <View style={schoolWidgetStyles.statsRow}>
+          <View style={schoolWidgetStyles.statItem}>
+            <Text style={[schoolWidgetStyles.statNum, { color: colors.primary }]}>
+              {summary.pending_homework}
+            </Text>
+            <Text style={[schoolWidgetStyles.statText, { color: colors.mutedForeground }]}>
+              Due
+            </Text>
+          </View>
+          <View style={[schoolWidgetStyles.divider, { backgroundColor: colors.border }]} />
+          <View style={schoolWidgetStyles.statItem}>
+            <Text
+              style={[
+                schoolWidgetStyles.statNum,
+                { color: hasOverdue ? "#EF4444" : colors.foreground },
+              ]}
+            >
+              {summary.overdue_homework}
+            </Text>
+            <Text style={[schoolWidgetStyles.statText, { color: colors.mutedForeground }]}>
+              Overdue
+            </Text>
+          </View>
+          <View style={[schoolWidgetStyles.divider, { backgroundColor: colors.border }]} />
+          <View style={schoolWidgetStyles.statItem}>
+            <Text style={[schoolWidgetStyles.statNum, { color: colors.foreground }]}>
+              {summary.absences_last_30_days}
+            </Text>
+            <Text style={[schoolWidgetStyles.statText, { color: colors.mutedForeground }]}>
+              Absences
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  );
+}
+
+const schoolWidgetStyles = StyleSheet.create({
+  card: { paddingVertical: 14 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  headerEmoji: { fontSize: 16 },
+  title: { fontSize: 14, fontWeight: "700" },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  statItem: { alignItems: "center", flex: 1 },
+  statNum: { fontSize: 20, fontWeight: "700" },
+  statText: { fontSize: 11, fontWeight: "500", marginTop: 2 },
+  divider: { width: 1, height: 28 },
+});
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -422,7 +580,11 @@ export default function DashboardScreen() {
   const { data: children = [] } = useChildren();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: expenses = [] } = useExpenses();
+  const { data: parentingTime } = useParentingTime();
   const createEvent = useCreateEvent();
+
+  const parentALabel = user?.parent_a_name ?? "Parent A";
+  const parentBLabel = user?.parent_b_name ?? "Parent B";
 
   const handleAddToPlan = (activity: ActivitySuggestion) => {
     ReactNativeHapticFeedback.trigger("impactLight");
@@ -499,19 +661,31 @@ export default function DashboardScreen() {
         {/* Custody status */}
         <CustodyStatusSection colors={colors} />
 
+        {/* Parenting Time */}
+        <View style={styles.section}>
+          <ParentingTimeCard
+            parentingTime={parentingTime}
+            colors={colors}
+            parentALabel={parentALabel}
+            parentBLabel={parentBLabel}
+          />
+        </View>
+
+        {/* School Summary */}
+        <View style={styles.section}>
+          <SchoolSummaryCard
+            colors={colors}
+            onPress={() => navigateTo("SchoolIntegration")}
+          />
+        </View>
+
         {/* Today's Schedule */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             {"Today's Schedule"}
           </Text>
           {eventsLoading ? (
-            <Card>
-              <ActivityIndicator
-                size="small"
-                color={colors.primary}
-                style={{ paddingVertical: 24 }}
-              />
-            </Card>
+            <DashboardSkeleton />
           ) : todayEvents.length === 0 ? (
             <Card>
               <View style={styles.emptyState}>
@@ -908,5 +1082,47 @@ const styles = StyleSheet.create({
   quickAddLabel: {
     fontSize: 12,
     fontWeight: "600",
+  },
+});
+
+const parentingTimeStyles = StyleSheet.create({
+  card: {
+    paddingVertical: 14,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  subtitle: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  labelsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  barContainer: {
+    flexDirection: "row",
+    height: 12,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  barSegment: {
+    height: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    marginTop: 4,
   },
 });

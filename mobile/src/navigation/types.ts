@@ -32,6 +32,12 @@ export type ScreensStackParamList = {
   CustodySchedule: undefined;
   ExportHistory: undefined;
   ProfessionalAccess: undefined;
+  PhotoAlbums: undefined;
+  PhotoAlbumDetail: { albumId: string; albumTitle: string };
+  ChildInfoBank: undefined;
+  PrivateJournal: undefined;
+  SchoolIntegration: undefined;
+  CommunityEvents: undefined;
 };
 
 export type RootStackParamList = {

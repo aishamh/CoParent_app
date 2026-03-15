@@ -1,0 +1,15 @@
+@@ -1,9 +1,14 @@
+ import { type Express } from "express";
+ import { db } from "../db";
+ import { deviceTokens, notificationPreferences } from "../tables";
+ import { eq, and } from "drizzle-orm";
+ import { requireAuth } from "../auth";
+ import {
+   insertDeviceTokenSchema,
+   updateNotificationPreferencesSchema,
+ } from "../../shared/schema";
++import {
++  processPendingNotifications,
++  getNotificationStats,
++  cleanupOldNotifications,
++} from "../services/eventNotificationScheduler";

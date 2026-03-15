@@ -1,0 +1,1 @@
+[     376ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/rest/v1/friends?select=*&order=created_at.desc:0

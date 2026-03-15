@@ -8,7 +8,7 @@ import {
 
 const REFETCH_INTERVAL_MS = 15_000;
 
-export function useMessages(otherUserId?: number) {
+export function useMessages(otherUserId?: string) {
   return useQuery({
     queryKey: otherUserId ? ["messages", otherUserId] : ["messages"],
     queryFn: () => getMessages(otherUserId),

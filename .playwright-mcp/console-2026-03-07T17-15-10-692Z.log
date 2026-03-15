@@ -1,0 +1,2 @@
+[     773ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/rest/v1/expenses?select=*&order=created_at.desc:0
+[     773ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/rest/v1/children?select=*&order=created_at.desc:0

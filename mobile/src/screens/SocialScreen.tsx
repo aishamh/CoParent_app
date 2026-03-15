@@ -259,12 +259,12 @@ export default function SocialScreen() {
     );
   }
 
-  function YourCircleHeader() {
+  function YourVillageHeader() {
     return (
       <View style={styles.sectionHeaderRow}>
         <Icon name="users" size={20} color={colors.primary} />
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          Your Circle
+          Your Village
         </Text>
       </View>
     );
@@ -440,21 +440,41 @@ export default function SocialScreen() {
     );
   }
 
-  function InviteCoParentCard() {
+  function InviteToVillageCard() {
+    const handleInvite = () => {
+      ReactNativeHapticFeedback.trigger("impactLight");
+      Alert.alert(
+        "Invite to Your Village",
+        "Who would you like to invite?",
+        [
+          {
+            text: "Co-Parent",
+            onPress: () => Alert.alert("Share Code", "Share your family invite code with your co-parent so they can join the app."),
+          },
+          {
+            text: "Friend or Family",
+            onPress: () => setShowFriendForm(true),
+          },
+          { text: "Cancel", style: "cancel" },
+        ],
+      );
+    };
+
     return (
       <Card style={[styles.featureCard, { backgroundColor: colors.card }]}>
         <View style={styles.featureCardHeader}>
           <Icon name="send" size={20} color={colors.primary} />
           <Text style={[styles.featureCardTitle, { color: colors.foreground }]}>
-            Invite Co-Parent
+            Invite to Your Village
           </Text>
         </View>
         <Text style={[styles.featureCardBody, { color: colors.mutedForeground }]}>
-          Send an invitation to the other parent to join Co-Parent and coordinate together.
+          Invite your co-parent, friends, or family members to join your village and coordinate together.
         </Text>
         <TouchableOpacity
           style={[styles.featureButton, { backgroundColor: colors.primary }]}
           activeOpacity={0.7}
+          onPress={handleInvite}
           accessibilityRole="button"
           accessibilityLabel="Send invite"
         >
@@ -637,7 +657,7 @@ export default function SocialScreen() {
         }
         ListHeaderComponent={
           <>
-            <YourCircleHeader />
+            <YourVillageHeader />
 
             <UpcomingEventsSection />
 
@@ -645,17 +665,17 @@ export default function SocialScreen() {
 
             <PendingInvitesCard />
 
-            <InviteCoParentCard />
+            <InviteToVillageCard />
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                Friends
+                Friends & Family
               </Text>
               {friends.length === 0 ? (
                 <EmptySection
                   icon="users"
-                  title="No friends yet"
-                  subtitle="Add friends to organize playdates."
+                  title="No one in your village yet"
+                  subtitle="Add friends and family to organize playdates and stay connected."
                 />
               ) : (
                 friends.map((friend) => (

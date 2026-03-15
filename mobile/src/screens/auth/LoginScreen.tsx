@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -121,6 +122,11 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
+            <Image
+              source={require("../../assets/app-icon.png")}
+              style={styles.logo}
+              accessibilityLabel="CoParent Connect logo"
+            />
             <Text style={[styles.title, { color: colors.primary }]}>
               CoParent Connect
             </Text>
@@ -299,6 +305,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: 40,
+  },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 20,
+    marginBottom: 16,
   },
   title: {
     fontSize: 32,

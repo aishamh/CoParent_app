@@ -1,0 +1,18 @@
+[   15471ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://oydddblbkqokxkqghuwp.supabase.co/auth/v1/signup?redirect_to=https%3A%2F%2Fcoparent-app.netlify.app%2Fdashboard:0
+[   15471ms] [ERROR] TypeError: Failed to fetch
+    at https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:35:2957
+    at ZL (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:35:9209)
+    at $e (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:35:9008)
+    at B8.signUp (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:50:18439)
+    at signUp (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:51:47001)
+    at T (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:130:75080)
+    at dw (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:8:127861)
+    at https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:8:133075
+    at yx (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:8:15136)
+    at Km (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:8:129097) @ https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:34
+[   15472ms] [ERROR] Sign up error: AuthRetryableFetchError: Failed to fetch
+    at ZL (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:35:9266)
+    at async $e (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:35:9002)
+    at async B8.signUp (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:50:18433)
+    at async signUp (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:51:46987)
+    at async T (https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:130:75074) @ https://coparent-app.netlify.app/assets/index-qlv9-bgC.js:50

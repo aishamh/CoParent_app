@@ -89,3 +89,21 @@ export async function respondToSwapRequest(
     return null;
   }
 }
+
+interface ParentingTimeResult {
+  parent_a_days: number;
+  parent_b_days: number;
+  parent_a_percent: number;
+  parent_b_percent: number;
+  total_days: number;
+  period_start: string;
+  period_end: string;
+}
+
+export async function getParentingTime(): Promise<ParentingTimeResult | null> {
+  try {
+    return await fetchApi<ParentingTimeResult>("/api/custody/parenting-time");
+  } catch {
+    return null;
+  }
+}
