@@ -1,4 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -750,6 +752,90 @@ function ScrollToBottomButton({
 }
 
 const fabStyles = StyleSheet.create({
+  smsModal: {
+    backgroundColor: "rgba(0,0,0,0.5)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  smsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+  },
+  smsModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  smsModalLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  smsModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  smsModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smsModalCancelButton: {
+    backgroundColor: "#E5E7EB",
+  },
+  smsModalSendButton: {
+    backgroundColor: "#10B981",
+  },
+  smsModalButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  smsFab: {
+    position: "absolute",
+    bottom: 100,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  smsFabButton: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 20,
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  smsFabText: {
+    color: "#fff",
+    fontSize: 20,
+  },
+  smsFabLabel: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  smsFabInput: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 15,
+  },
+
+const fabStyles = StyleSheet.create({
   wrapper: { position: "absolute", bottom: 80, right: 16, zIndex: 10 },
   button: {
     width: 44,
@@ -767,6 +853,28 @@ const fabStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
+
+/cat /tmp/sms_functions.txt
+
+  const openSMS = useCallback(async () => {
+    if (!smsPhone) {
+      Alert.alert("Phone Number Required", "Please enter your coparent's phone number to send a message.");
+      setSmsModalVisible(true);
+      return;
+    }
+
+    const url = Platform.select({
+      ios: `sms:${encodeURIComponent(smsPhone)}&body=`,
+      android: `sms:${smsPhone}?body=`,
+    });
+
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert("Cannot Send Message", "SMS is not available on this device.");
+    }
+  }, [smsPhone, setSmsModalVisible]);
 
 export default function MessagesScreen() {
   const { user } = useAuth();
@@ -829,6 +937,54 @@ export default function MessagesScreen() {
           unreadCount: unread,
         });
       }
+      {/* SMS Button */}
+      <TouchableOpacity
+        style={styles.smsFab}
+        onPress={() => setSmsModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Icon name="message-square" size={20} color="#fff" />
+        <View style={styles.smsFabInput}>
+          <Text style={styles.smsFabText}>Text</Text>
+          <Text style={styles.smsFabLabel}>Coparent</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* SMS Phone Modal */}
+      <Modal visible={smsModalVisible} transparent animationType="slide">
+        <View style={styles.smsModal}>
+          <View style={styles.smsModalContent}>
+            <Text style={styles.smsModalTitle}>Send SMS to Coparent</Text>
+            <Text style={styles.smsModalLabel}>Enter phone number (with country code)</Text>
+            <TextInput
+              style={styles.smsFabInput}
+              placeholder="+1 234 567 8901"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
+              value={smsPhone}
+              onChangeText={setSmsPhone}
+              autoFocus
+            />
+            <View style={styles.smsModalActions}>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalCancelButton]}
+                onPress={() => setSmsModalVisible(false)}
+              >
+                <Text style={styles.smsModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalSendButton]}
+                onPress={() => {
+                  setSmsModalVisible(false);
+                  openSMS();
+                }}
+              >
+                <Text style={styles.smsModalButtonText}>Open SMS</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     }
 
     return Array.from(map.values()).sort(
@@ -985,6 +1141,54 @@ export default function MessagesScreen() {
       } else {
         Alert.alert("Error", "Failed to upload attachment.");
       }
+      {/* SMS Button */}
+      <TouchableOpacity
+        style={styles.smsFab}
+        onPress={() => setSmsModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Icon name="message-square" size={20} color="#fff" />
+        <View style={styles.smsFabInput}>
+          <Text style={styles.smsFabText}>Text</Text>
+          <Text style={styles.smsFabLabel}>Coparent</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* SMS Phone Modal */}
+      <Modal visible={smsModalVisible} transparent animationType="slide">
+        <View style={styles.smsModal}>
+          <View style={styles.smsModalContent}>
+            <Text style={styles.smsModalTitle}>Send SMS to Coparent</Text>
+            <Text style={styles.smsModalLabel}>Enter phone number (with country code)</Text>
+            <TextInput
+              style={styles.smsFabInput}
+              placeholder="+1 234 567 8901"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
+              value={smsPhone}
+              onChangeText={setSmsPhone}
+              autoFocus
+            />
+            <View style={styles.smsModalActions}>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalCancelButton]}
+                onPress={() => setSmsModalVisible(false)}
+              >
+                <Text style={styles.smsModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalSendButton]}
+                onPress={() => {
+                  setSmsModalVisible(false);
+                  openSMS();
+                }}
+              >
+                <Text style={styles.smsModalButtonText}>Open SMS</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     } finally {
       setIsUploadingAttachment(false);
     }
@@ -1363,6 +1567,55 @@ export default function MessagesScreen() {
       >
         {viewMode === "list" ? renderConversationList() : renderThreadView()}
       </KeyboardAvoidingView>
+          {/* SMS Button */}
+      <TouchableOpacity
+        style={styles.smsFab}
+        onPress={() => setSmsModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Icon name="message-square" size={20} color="#fff" />
+        <View style={styles.smsFabInput}>
+          <Text style={styles.smsFabText}>Text</Text>
+          <Text style={styles.smsFabLabel}>Coparent</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* SMS Phone Modal */}
+      <Modal visible={smsModalVisible} transparent animationType="slide">
+        <View style={styles.smsModal}>
+          <View style={styles.smsModalContent}>
+            <Text style={styles.smsModalTitle}>Send SMS to Coparent</Text>
+            <Text style={styles.smsModalLabel}>Enter phone number (with country code)</Text>
+            <TextInput
+              style={styles.smsFabInput}
+              placeholder="+1 234 567 8901"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
+              value={smsPhone}
+              onChangeText={setSmsPhone}
+              autoFocus
+            />
+            <View style={styles.smsModalActions}>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalCancelButton]}
+                onPress={() => setSmsModalVisible(false)}
+              >
+                <Text style={styles.smsModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.smsModalButton, styles.smsModalSendButton]}
+                onPress={() => {
+                  setSmsModalVisible(false);
+                  openSMS();
+                }}
+              >
+                <Text style={styles.smsModalButtonText}>Open SMS</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1383,7 +1636,51 @@ const attachStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  smsModal: {
+    backgroundColor: "rgba(0,0,0,0.5)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  smsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+  },
+  smsModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  smsModalLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  smsModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  smsModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smsModalCancelButton: {
+    backgroundColor: "#E5E7EB",
+  },
+  smsModalSendButton: {
+    backgroundColor: "#10B981",
+  },
+  smsModalButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+/  safe: { flex: 1 },
   flex: { flex: 1 },
 
   // -- List header --
