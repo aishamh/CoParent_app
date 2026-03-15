@@ -10,7 +10,16 @@ import PushNotificationIOS from "@react-native-community/push-notification-ios";
 import type { Profile } from "../types/schema";
 import { authGetMe, authLogin, authLogout, authRegister } from "../api/auth";
 import { setOnUnauthorized } from "../api/client";
-import { getToken, setToken, deleteToken } from "./tokenStorage";
+import {
+  getToken,
+  setToken,
+  deleteToken,
+  getSupportedBiometry,
+  isBiometricEnabled,
+  setBiometricEnabled,
+  getTokenWithBiometrics,
+  setTokenWithBiometrics,
+} from "./tokenStorage";
 import {
   registerDeviceToken,
   deactivateDeviceToken,
@@ -32,6 +41,9 @@ interface SignUpData {
 interface AuthContextValue {
   user: Profile | null;
   loading: boolean;
+  biometryType: string | null;
+  biometricEnabled: boolean;
+  toggleBiometric: () => Promise<void>;
   signIn: (username: string, password: string) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
@@ -48,7 +60,7 @@ interface AuthProviderProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Request push notification permissions and register the device token.
+ * Request push notification permissions and register device token.
  * Gracefully fails on iOS Simulator (no APNs support) with a console log.
  */
 async function requestAndRegisterPushToken(): Promise<string | null> {
@@ -64,7 +76,7 @@ async function requestAndRegisterPushToken(): Promise<string | null> {
       return null;
     }
 
-    // On a real device this returns the APNs token.
+    // On a real device this returns to APNs token.
     // On simulator this callback is never fired — we rely on the timeout.
     return await new Promise<string | null>((resolve) => {
       const timeout = setTimeout(() => {
@@ -99,9 +111,18 @@ async function requestAndRegisterPushToken(): Promise<string | null> {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [biometryType, setBiometryType] = useState<string | null>(null);
+  const [biometricEnabled, setBiometricEnabledState] = useState(false);
   const pushTokenRef = useRef<string | null>(null);
 
+  // Detect available biometry on mount
   useEffect(() => {
+    (async () => {
+      const biometry = await getSupportedBiometry();
+      setBiometryType(biometry);
+      const enabled = await isBiometricEnabled();
+      setBiometricEnabledState(enabled);
+    })();
     restoreSession();
   }, []);
 
@@ -126,23 +147,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  /** Deactivate the push token on logout. */
-  async function deactivatePushToken(): Promise<void> {
-    const token = pushTokenRef.current;
-    if (!token) return;
-
+  /** Toggle biometric authentication on/off */
+  const toggleBiometric = useCallback(async (): Promise<void> => {
     try {
-      await deactivateDeviceToken(token);
-      pushTokenRef.current = null;
-      console.log("[Push] Device token deactivated");
-    } catch {
-      // Non-fatal — server will clean up stale tokens eventually
+      const current = await isBiometricEnabled();
+      const newValue = !current;
+      await setBiometricEnabled(newValue);
+      setBiometricEnabledState(newValue);
+
+      // If enabling, prompt user to authenticate to verify
+      if (newValue && biometryType) {
+        const token = await getToken();
+        if (token) {
+          await setTokenWithBiometrics(token);
+        }
+      }
+    } catch (error) {
+      console.log("[Auth] Failed to toggle biometric:", error);
     }
-  }
+  }, [biometryType]);
 
   async function restoreSession(): Promise<void> {
     try {
-      const token = await getToken();
+      const biometricAllowed = await isBiometricEnabled();
+      const biometry = await getSupportedBiometry();
+
+      let token: string | null = null;
+
+      // If biometric is enabled and supported, prompt for biometric auth
+      if (biometricAllowed && biometry) {
+        token = await getTokenWithBiometrics();
+        console.log("[Auth] Restored session with biometric authentication");
+      }
+
+      // Fall back to regular token retrieval
+      if (!token) {
+        token = await getToken();
+      }
+
       if (!token) return;
 
       const profile = await authGetMe();
@@ -161,7 +203,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = useCallback(
     async (username: string, password: string): Promise<void> => {
       const { token } = await authLogin(username, password);
-      await setToken(token);
+
+      // Check if biometric is available after successful login
+      const biometry = await getSupportedBiometry();
+      if (biometry) {
+        setBiometryType(biometry);
+      }
+
+      // Store token with biometric prompt if enabled
+      const biometricAllowed = await isBiometricEnabled();
+      if (biometricAllowed) {
+        await setTokenWithBiometrics(token);
+      } else {
+        await setToken(token);
+      }
 
       const profile = await authGetMe();
       setUser(profile);
@@ -175,6 +230,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signUp = useCallback(async (data: SignUpData): Promise<void> => {
     const { token } = await authRegister(data);
+
+    // Check if biometric is available after successful signup
+    const biometry = await getSupportedBiometry();
+    if (biometry) {
+      setBiometryType(biometry);
+    }
+
     await setToken(token);
 
     const profile = await authGetMe();
@@ -204,6 +266,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextValue = {
     user,
     loading,
+    biometryType,
+    biometricEnabled,
+    toggleBiometric,
     signIn,
     signUp,
     signOut,
