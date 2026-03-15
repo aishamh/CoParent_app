@@ -28,7 +28,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>coparent</string>
-				<string>com.coparent.connect</string>
+				<string>sms</string>
 			</array>
 		</dict>
 	</array>
@@ -100,11 +100,11 @@
 		<string>Foundation.ttf</string>
 		<string>Ionicons.ttf</string>
 		<string>FontAwesome5_Solid.ttf</string>
-		<string>FontAwesome5_Regular.ttf</string>
+		<string>FontAwesome6_Regular.ttf</string>
 		<string>FontAwesome.ttf</string>
-		<string>Zocial.ttf</string>
+		<string>Social.ttf</string>
 		<string>EvilIcons.ttf</string>
-		<string>FontAwesome6_Solid.ttf</string>
+		<string>FontAwesome6_Brands.ttf</string>
 		<string>SimpleLineIcons.ttf</string>
 		<string>FontAwesome6_Brands.ttf</string>
 		<string>MaterialIcons.ttf</string>

@@ -1,30 +1,42 @@
 {
   "cli": {
-    "projectId": "coparent-connect"
-  "appName": "CoParent Connect"
-  "version": "1.1.0"
-    "android": {
-      "build": "eas"
+    "projectId": "coparent-connect",
+    "appName": "CoParent Connect",
+    "version": "1.1.0"
+  },
+  "build": {
+    "developmentClient": {
+      "distribution": "internal",
       "ios": {
-        "build": "eas",
-        "simulator": {
-          "configuration": "Release"
-        },
-        "build": {
-          "developmentClient": "eas",
-          "distribution": "eas"
-        }
+        "simulator": true
       }
     },
-    "submit": {
-      "production": "eas"
+    "development": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "distribution": "app-store",
+      "ios": {
+        "autoIncrement": true
+      }
     }
-  }
-  }
-  "extra": {
-    "eas": {
-      "projectId": "coparent-connect",
-      "experimental": "eas-build-and-submit"
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "YOUR_APPLE_TEAM_ID",
+        "ascAppId": "YOUR_APP_SPECIFIC_PASSWORD",
+        "appleIdPassword": "YOUR_APPLE_ID_PASSWORD"
+      }
     }
   }
 }
