@@ -1,120 +1,134 @@
-# 🚀 EAS Build Instructions - Why EAS vs Local Xcode
+# 🚀 CoParent Connect v1.1.0 - Xcode Cloud Build & TestFlight
 
-## Why EAS Build is Better Than Local Xcode
+## ✅ Status: All Code Committed & Ready for Build
 
-### EAS Build (Recommended ⭐)
+### Recent Commits
+```
+2fed03d - Add comprehensive TestFlight deployment documentation
+e23e3cc - Add SMS initiation feature to MessagesScreen  
+c5087b2 - Update version to 1.1.0 and add SMS URL scheme support
+```
+
+---
+
+## 🎯 What's Been Implemented
+
+### Core Feature: SMS to Coparent
+**File Modified:** `/mobile/src/screens/tabs/MessagesScreen.tsx`
+
+**What it does:**
+- ✅ Added "Text Coparent" floating button in Messages tab
+- ✅ Modal dialog to enter coparent's phone number (with country code)
+- ✅ Opens native iOS Messages app with phone number pre-filled
+- ✅ Platform-specific SMS URL formatting (iOS: `sms:`, Android: `sms:?body=`)
+
+**User Flow:**
+1. User navigates to Messages tab
+2. Taps "Text Coparent" button (bottom-right corner)
+3. Modal opens asking for phone number
+4. User enters phone number (e.g., "+1 234 567 8901")
+5. Taps "Open SMS"
+6. Native Messages app opens with phone number ready to text
+
+---
+
+### iOS Configuration Updates
+**File Modified:** `/mobile/ios/CoParentConnect/Info.plist`
+
+**Changes:**
+- ✅ Added `coparent://` URL scheme for deep linking
+- ✅ Added `sms://` URL scheme for SMS integration
+- ✅ Both schemes registered in `CFBundleURLTypes`
+
+**Benefits:**
+- App can open from SMS links
+- Future integrations can use deep linking
+- Compliance with iOS URL scheme requirements
+
+---
+
+### Version Updates
+- ✅ `package.json`: 1.0.0 → 1.1.0
+- ✅ All TypeScript compilation passes with 0 errors
+
+---
+
+## 📦 Xcode Cloud Build Process
+
+### Why Xcode Cloud Build?
 
 **Advantages:**
-1. **Automatic Code Signing** ✅
-   - No manual provisioning profile management
-   - Automatic certificate handling
-   - Reduced human error risk
-
-2. **Cloud-Based Compilation** ☁️
-   - 5-15 minutes vs 10-30 minutes locally
-   - Uses optimized build servers
+1. **Cloud-Based Compilation** ☁️
+   - Faster than local builds
+   - Uses Apple's optimized build servers
    - Consistent environment every time
 
-3. **Detailed Build Logs** 📋
+2. **Detailed Build Logs** 📋
    - Web-accessible build logs
    - Easy troubleshooting
    - Build history tracking
 
-4. **Automatic Caching** ⚡
-   - Faster subsequent builds
-   - Only recompiles what changed
-   - Saves time and resources
-
-5. **Multi-Environment Support** 🌐
+3. **Multi-Environment Support** 🌐
    - Development, preview, production profiles
    - Easy to manage multiple build types
    - One command per environment
 
-6. **Direct TestFlight Integration** 📲
+4. **Direct TestFlight Integration** 📲
    - Upload URL provided after build
    - One-click upload to App Store Connect
    - Streamlined workflow
 
-### Local Xcode Build (Use Only When...)
+---
 
-**When to use local Xcode:**
-- Need to debug build issues locally
-- Custom build scripts or workarounds
-- Offline environment (no internet)
-- Fine-grained control over build process
+## 🚀 Step-by-Step Build Process
 
-**Disadvantages:**
-- ⏱️ 10-30 minutes (3-6x slower)
-- 💻 Requires local Xcode installation
-- 🔐 Manual code signing and provisioning
-- 📝 Manual upload to App Store Connect
-- 🔄 Must rebuild manually for each update
+### Step 1: Access Xcode Cloud
+
+**Using your Xcode Cloud workspace:**
+1. Log in to [developer.apple.com](https://developer.apple.com)
+2. Navigate to **Xcode Cloud** section
+3. Select **CoParent Connect** project
+4. Choose **Production** configuration
+5. Click **Build**
+
+**Alternatively via Xcode:**
+1. Open `CoParentConnect.xcworkspace`
+2. Go to **Product** → **Archive**
+3. Select **Cloud** as destination
+4. Click **Archive and Upload**
 
 ---
 
-## 🚀 Step-by-Step EAS Build Process
-
-### Step 1: Login to EAS (Interactive)
-
-```bash
-cd /Users/aishahalane/CoParent_app/mobile
-npx eas login
-```
-
-**What happens:**
-1. Opens Expo's account page in your browser
-2. You log in with your Apple Developer account
-3. EAS generates an authentication token
-4. Token saved locally (~/.config/expo/state.json)
-
-**Required:**
-- Apple Developer account credentials
-- Browser access (for OAuth flow)
-
----
-
-### Step 2: Run Production Build
-
-```bash
-npx eas build --platform ios --profile production
-```
-
-**What happens:**
-1. EAS validates your configuration
-2. Uploads source code to cloud build servers
-3. Compiles and signs the app
-4. Creates iOS archive (.ipa file)
-5. Provides download/upload URL
+### Step 2: Monitor Build Progress
 
 **Timeline:**
-- Validation: 30-60 seconds
-- Upload: 1-2 minutes
-- Build: 5-15 minutes
+- Build Queued: 30-60 seconds
+- Compilation: 5-10 minutes
+- Upload to App Store Connect: 2-5 minutes
 - Total: 7-18 minutes
+
+**What to monitor:**
+- Check Xcode Cloud dashboard for progress
+- Wait for completion email/notification
+- Review any build errors in logs
 
 ---
 
 ### Step 3: Upload to TestFlight
 
-**After build completes, you'll see:**
+**After build completes:**
 
-```
-Build URL: https://expo.dev/artifacts/12345...
-App URL: https://appstoreconnect.apple.com/...
-```
+1. You'll receive notification with **build URL**
+2. Click URL to open **App Store Connect**
+3. Review app metadata
+4. Confirm upload
 
-**Option A: Automatic Upload (via EAS URL)**
-1. Click the build URL
-2. Log in to App Store Connect
-3. Upload starts automatically
-4. Wait 2-5 minutes for processing
-
-**Option B: Manual Upload (via Xcode)**
-1. Download .ipa file from build URL
-2. Open Transporter app (comes with Xcode)
-3. Drag and drop .ipa file
-4. Fill in metadata
-5. Upload 2-5 minutes
+**Or via Xcode Organizer:**
+1. Open **Window** → **Organizer**
+2. Select the new archive
+3. Click **"Distribute App"** 
+4. Choose **"App Store Connect"**
+5. Sign in and upload
 
 ---
 
@@ -229,20 +243,6 @@ App URL: https://appstoreconnect.apple.com/...
 
 ---
 
-## 🎯 Success Metrics
-
-**Track these metrics:**
-
-| Metric | Target | Tool |
-|--------|--------|-------|
-| Crash-free sessions | >95% | Sentry |
-| App launch time | <3 seconds | TestFlight feedback |
-| Test conversion rate | >50% | TestFlight analytics |
-| Feature adoption | >80% | In-app analytics |
-| User satisfaction | >4/5 stars | TestFlight reviews |
-
----
-
 ## 📱 Testing Your SMS Feature
 
 **Since that's the new feature in v1.1.0, test it thoroughly:**
@@ -282,22 +282,35 @@ App URL: https://appstoreconnect.apple.com/...
 
 ---
 
+## 🎯 Success Metrics
+
+**Track these metrics:**
+
+| Metric | Target | Tool |
+|--------|--------|-------|
+| Crash-free sessions | >95% | Sentry |
+| App launch time | <3 seconds | TestFlight feedback |
+| Test conversion rate | >50% | TestFlight analytics |
+| Feature adoption | >80% | In-app analytics |
+| User satisfaction | >4/5 stars | TestFlight reviews |
+
+---
+
 ## 🎉 Summary
 
-**EAS Build Advantages:**
-- ⚡ 5-15 minutes vs 10-30 minutes locally
+**Xcode Cloud Build Advantages:**
+- ⚡ 5-15 minutes compilation
 - ☁️ Cloud-based, consistent builds
-- 🔐 Automatic code signing
 - 📋 Web-accessible logs
-- 🔄 Automatic caching for faster rebuilds
+- 🔄 Direct TestFlight integration
+- 🌐 Multi-environment support
 
 **Next Steps:**
-1. Run `npx eas login` (interactive)
-2. Run `npx eas build --platform ios --profile production`
-3. Click build URL to upload to TestFlight
+1. Access your Xcode Cloud workspace on developer.apple.com
+2. Build CoParent Connect v1.1.0
+3. Upload to TestFlight
 4. Add testers (up to 100 internal, 10,000 external)
 5. Gather feedback from testers
 6. Fix issues and prepare for production
 
 **You're all set to build and deploy to TestFlight!** 🚀
-
