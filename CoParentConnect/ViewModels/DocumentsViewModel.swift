@@ -161,18 +161,18 @@ final class DocumentsViewModel {
 
     private func mimeTypeFor(_ fileType: DocumentFileType) -> String {
         switch fileType {
-        case .pdf: "application/pdf"
-        case .image: "image/jpeg"
-        case .doc: "application/octet-stream"
+        case .pdf: return "application/pdf"
+        case .image: return "image/jpeg"
+        case .doc: return "application/octet-stream"
         }
     }
 
     private func filenameFor(title: String, fileType: DocumentFileType) -> String {
         let sanitized = title.replacingOccurrences(of: " ", with: "_").lowercased()
         switch fileType {
-        case .pdf: "\(sanitized).pdf"
-        case .image: "\(sanitized).jpg"
-        case .doc: "\(sanitized).doc"
+        case .pdf: return "\(sanitized).pdf"
+        case .image: return "\(sanitized).jpg"
+        case .doc: return "\(sanitized).doc"
         }
     }
 }
