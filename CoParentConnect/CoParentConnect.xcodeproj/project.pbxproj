@@ -26,6 +26,7 @@
 		6AE20B8E619986E08708297C /* Expense.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D5128044340E339E848A3E /* Expense.swift */; };
 		700846824DD8A417ECFFA79F /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42B654285923DBE85904B4E /* CalendarView.swift */; };
 		72E9F4D475D0F9D5248B659D /* ExpensesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827BEF35E98E763923CF6F65 /* ExpensesViewModel.swift */; };
+		7C17B1EF59C39CD33BB5810F /* ci_post_clone.sh in Resources */ = {isa = PBXBuildFile; fileRef = 9A7317D915C332E3CD1A7782 /* ci_post_clone.sh */; };
 		7CD470F57C824D480FA63EA3 /* ExpensesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A60DA20AC28EDA489DD02A /* ExpensesView.swift */; };
 		8DF0C1498E3D0BBBC8B3BF9A /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45C15F67A1C6E3107A824FF /* KeychainService.swift */; };
 		97D86FFD045E3CBE0FA5E086 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00ABE4C26C6195A822EECA84 /* MainTabView.swift */; };
@@ -61,6 +62,7 @@
 		91222748A2B61D61F4C591BE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9134D5482A72007962CA583E /* UploadDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadDocumentView.swift; sourceTree = "<group>"; };
 		934743560324031CDC0E9CD2 /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		9A7317D915C332E3CD1A7782 /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 		9D1AAF44685EE363C0482BA4 /* MessagesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewModel.swift; sourceTree = "<group>"; };
 		A3582BB12CAC7D17F1979B0E /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
 		A5443CF1544081E7C2011A3D /* CoParentConnect.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoParentConnect.entitlements; sourceTree = "<group>"; };
@@ -118,6 +120,14 @@
 				00ABE4C26C6195A822EECA84 /* MainTabView.swift */,
 			);
 			path = Tabs;
+			sourceTree = "<group>";
+		};
+		37C511CEA03050168BF422F8 /* ci_scripts */ = {
+			isa = PBXGroup;
+			children = (
+				9A7317D915C332E3CD1A7782 /* ci_post_clone.sh */,
+			);
+			path = ci_scripts;
 			sourceTree = "<group>";
 		};
 		5DC8BF05D1B51CAEF6E019E0 /* Utilities */ = {
@@ -200,6 +210,7 @@
 			isa = PBXGroup;
 			children = (
 				C4F883A214451E0BBE825C7A /* App */,
+				37C511CEA03050168BF422F8 /* ci_scripts */,
 				7D33F6A4FCDC82673FE487A8 /* Core */,
 				96EA6E62C0128578EF2A32DD /* Models */,
 				8DC4A424AC291BBCFF262C30 /* Networking */,
@@ -268,7 +279,7 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_83D29BC0-624C-4135-A458-9EEE2FE2ECA7" /* CoParentConnect */ = {
+		"TEMP_3A40383F-BD07-4D17-8103-1B544E7B9320" /* CoParentConnect */ = {
 			isa = PBXGroup;
 			children = (
 				70F3E2AE77557FD4CBD46113 /* ViewModels */,
@@ -277,6 +288,7 @@
 				8DC4A424AC291BBCFF262C30 /* Networking */,
 				F4368BCBA851DA3D5E1364F3 /* Resources */,
 				96EA6E62C0128578EF2A32DD /* Models */,
+				37C511CEA03050168BF422F8 /* ci_scripts */,
 				BC5E0DA993F96F5DB756F436 /* Views */,
 				9A3E5C2216F761228B53BD83 /* Services */,
 			);
@@ -344,6 +356,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D733B2919B2A26FE91C791B6 /* Assets.xcassets in Resources */,
+				7C17B1EF59C39CD33BB5810F /* ci_post_clone.sh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -429,7 +442,7 @@
 				CODE_SIGN_ENTITLEMENTS = Resources/CoParentConnect.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SP337KYTD8;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -493,7 +506,7 @@
 				CODE_SIGN_ENTITLEMENTS = Resources/CoParentConnect.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SP337KYTD8;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
