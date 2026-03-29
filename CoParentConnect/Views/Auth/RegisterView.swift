@@ -19,16 +19,15 @@ struct RegisterView: View {
 
     var body: some View {
         ZStack {
-            backgroundGradient
+            Color.cpBackground.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 28) {
                     headerSection
-                    formFields
-                    errorSection
-                    submitButton
-                    Spacer().frame(height: 40)
+                    formCard
+                    Spacer().frame(height: 20)
                 }
+                .padding(.horizontal, 32)
             }
         }
         .navigationBarBackButtonHidden(false)
@@ -37,97 +36,120 @@ struct RegisterView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 24)
+
             ZStack {
                 Circle()
-                    .fill(Color.cpPrimary.opacity(0.08))
-                    .frame(width: 80, height: 80)
+                    .fill(Color.cpPrimary100)
+                    .frame(width: 90, height: 90)
 
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.system(size: 36, weight: .medium))
                     .foregroundStyle(Color.cpPrimary)
             }
 
-            Text("Create Account")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.cpForeground)
+            VStack(spacing: 6) {
+                Text("Create Account")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.cpForeground)
 
-            Text("Join CoParent Connect")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color.cpMuted)
+                Text("Join CoParent Connect")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.cpMuted)
+            }
         }
-        .padding(.top, 20)
     }
 
-    // MARK: - Form
+    // MARK: - Form Card
 
-    private var formFields: some View {
-        VStack(spacing: 14) {
-            inputField(icon: "person.text.rectangle", placeholder: "Display Name", text: $displayName, contentType: .name)
-            inputField(icon: "person.fill", placeholder: "Username", text: $username, contentType: .username)
-            inputField(icon: "envelope.fill", placeholder: "Email (optional)", text: $email, contentType: .emailAddress)
-                .keyboardType(.emailAddress)
-
-            secureInputField(icon: "lock.fill", placeholder: "Password (min 8 characters)", text: $password)
-
-            VStack(spacing: 6) {
-                secureInputField(
-                    icon: "lock.rotation",
-                    placeholder: "Confirm Password",
-                    text: $confirmPassword,
-                    hasError: !confirmPassword.isEmpty && !passwordsMatch
+    private var formCard: some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 12) {
+                inputField(
+                    icon: "person.text.rectangle",
+                    placeholder: "Display Name",
+                    text: $displayName,
+                    contentType: .name
                 )
 
-                if !confirmPassword.isEmpty && !passwordsMatch {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 11))
-                        Text("Passwords don't match")
-                            .font(.caption)
+                inputField(
+                    icon: "person.fill",
+                    placeholder: "Username",
+                    text: $username,
+                    contentType: .username
+                )
+
+                inputField(
+                    icon: "envelope.fill",
+                    placeholder: "Email (optional)",
+                    text: $email,
+                    contentType: .emailAddress
+                )
+                .keyboardType(.emailAddress)
+
+                secureInputField(
+                    icon: "lock.fill",
+                    placeholder: "Password (min 8 chars)",
+                    text: $password
+                )
+
+                VStack(spacing: 6) {
+                    secureInputField(
+                        icon: "lock.rotation",
+                        placeholder: "Confirm Password",
+                        text: $confirmPassword,
+                        hasError: !confirmPassword.isEmpty && !passwordsMatch
+                    )
+
+                    if !confirmPassword.isEmpty && !passwordsMatch {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 11))
+                            Text("Passwords don't match")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(Color.cpDestructive)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 4)
                     }
-                    .foregroundStyle(Color.cpDestructive)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 4)
                 }
             }
 
             roleSelector
+
+            if let error = auth.errorMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 12))
+                    Text(error)
+                        .font(.system(size: 13))
+                }
+                .foregroundStyle(Color.cpDestructive)
+                .padding(10)
+                .frame(maxWidth: .infinity)
+                .background(Color.cpDestructive.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            submitButton
         }
-        .padding(.horizontal, 28)
+        .padding(20)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
     }
 
     private var roleSelector: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Your Role")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.cpForeground)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 roleButton("Parent A", value: "parent_a", color: .cpParentA)
                 roleButton("Parent B", value: "parent_b", color: .cpParentB)
             }
-        }
-        .padding(.top, 4)
-    }
-
-    // MARK: - Error
-
-    @ViewBuilder
-    private var errorSection: some View {
-        if let error = auth.errorMessage {
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.circle.fill")
-                    .font(.caption)
-                Text(error)
-                    .font(.caption)
-            }
-            .foregroundStyle(Color.cpDestructive)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(Color.cpDestructive.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .padding(.horizontal, 28)
         }
     }
 
@@ -152,11 +174,11 @@ struct RegisterView: View {
                     ProgressView().tint(.white).scaleEffect(0.9)
                 } else {
                     Text("Create Account")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(height: 50)
             .background(
                 isValid
                     ? AnyShapeStyle(
@@ -166,73 +188,70 @@ struct RegisterView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    : AnyShapeStyle(Color.cpPrimary.opacity(0.35))
+                    : AnyShapeStyle(Color.cpPrimary.opacity(0.3))
             )
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 14))
-            .shadow(color: isValid ? Color.cpPrimary.opacity(0.3) : .clear, radius: 8, y: 4)
+            .shadow(color: isValid ? Color.cpPrimary.opacity(0.25) : .clear, radius: 6, y: 3)
         }
         .disabled(!isValid || isLoading)
-        .padding(.horizontal, 28)
+        .padding(.top, 4)
     }
 
-    // MARK: - Background
+    // MARK: - Input Fields
 
-    private var backgroundGradient: some View {
-        ZStack {
-            Color.cpBackground.ignoresSafeArea()
-            VStack {
-                Ellipse()
-                    .fill(Color.cpPrimary.opacity(0.04))
-                    .frame(width: 500, height: 300)
-                    .offset(y: -100)
-                Spacer()
-            }
-            .ignoresSafeArea()
-        }
-    }
-
-    // MARK: - Components
-
-    private func inputField(icon: String, placeholder: String, text: Binding<String>, contentType: UITextContentType) -> some View {
+    @ViewBuilder
+    private func inputField(
+        icon: String,
+        placeholder: String,
+        text: Binding<String>,
+        contentType: UITextContentType
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Color.cpMuted)
-                .frame(width: 20)
+                .frame(width: 22)
 
             TextField(placeholder, text: text)
                 .textContentType(contentType)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .font(.system(size: 15))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color(.systemBackground))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(Color.cpBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.cpBorder, lineWidth: 1)
+                .stroke(Color.cpBorder, lineWidth: 1.5)
         )
     }
 
-    private func secureInputField(icon: String, placeholder: String, text: Binding<String>, hasError: Bool = false) -> some View {
+    private func secureInputField(
+        icon: String,
+        placeholder: String,
+        text: Binding<String>,
+        hasError: Bool = false
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(hasError ? Color.cpDestructive : Color.cpMuted)
-                .frame(width: 20)
+                .frame(width: 22)
 
             SecureField(placeholder, text: text)
                 .textContentType(.newPassword)
+                .font(.system(size: 15))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color(.systemBackground))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(Color.cpBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(hasError ? Color.cpDestructive : Color.cpBorder, lineWidth: 1)
+                .stroke(hasError ? Color.cpDestructive : Color.cpBorder, lineWidth: 1.5)
         )
     }
 
@@ -242,13 +261,13 @@ struct RegisterView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: selectedRole == value ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 16))
+                    .font(.system(size: 15))
                 Text(label)
                     .font(.system(size: 14, weight: .medium))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(selectedRole == value ? color.opacity(0.1) : Color(.systemBackground))
+            .padding(.vertical, 13)
+            .background(selectedRole == value ? color.opacity(0.1) : Color.cpBackground)
             .foregroundStyle(selectedRole == value ? color : Color.cpMuted)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
