@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 struct LoginView: View {
@@ -151,6 +152,17 @@ struct LoginView: View {
                     .foregroundStyle(Color.cpMuted.opacity(0.6))
                 Rectangle().fill(Color.cpBorder).frame(height: 1)
             }
+
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                _Concurrency.Task {
+                    await auth.handleAppleSignIn(result: result)
+                }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
 
             Button {
                 showRegister = true

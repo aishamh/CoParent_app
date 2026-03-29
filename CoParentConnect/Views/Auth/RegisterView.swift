@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 struct RegisterView: View {
@@ -133,6 +134,25 @@ struct RegisterView: View {
             }
 
             submitButton
+
+            HStack(spacing: 12) {
+                Rectangle().fill(Color.cpBorder).frame(height: 1)
+                Text("or")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.cpMuted.opacity(0.6))
+                Rectangle().fill(Color.cpBorder).frame(height: 1)
+            }
+
+            SignInWithAppleButton(.signUp) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                _Concurrency.Task {
+                    await auth.handleAppleSignIn(result: result)
+                }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .padding(20)
         .background(Color(.systemBackground))
