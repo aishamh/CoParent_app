@@ -114,7 +114,7 @@ export const authRateLimiter = rateLimiter({
 // Standard rate limiter for API endpoints
 export const apiRateLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 100, // 100 requests per window
+  maxRequests: 300, // 300 requests per window (production-tuned for active users)
 });
 
 // More lenient rate limiter for general requests

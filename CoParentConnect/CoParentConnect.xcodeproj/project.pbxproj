@@ -8,43 +8,77 @@
 
 /* Begin PBXBuildFile section */
 		014522140E204D66721605DF /* APIEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8F6E2116DF63BD96F11837 /* APIEndpoints.swift */; };
+		0728E3A8FE988549C1D3335C /* CalendarEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C7FD7068C6B1C05BEF3FE4 /* CalendarEventDetailView.swift */; };
+		0A18EB080D8FF6EC61EFE429 /* CreateExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E763842156D12509411C3FBA /* CreateExpenseView.swift */; };
+		184E831678638B33AE614492 /* DocumentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47282ADFFBEC6F63B953161A /* DocumentsView.swift */; };
 		19EB0789D763DF099DD98AA1 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD724582A37FFDAACD68925 /* Colors.swift */; };
+		1CFFDB01DAA332DCA3325520 /* CreateEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9DF74F3C594DEBDED79D002 /* CreateEventView.swift */; };
+		1D178D817869F00F7BFE9B9C /* UploadDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9134D5482A72007962CA583E /* UploadDocumentView.swift */; };
+		25D5A0D674009EEB3A9308C2 /* ExpenseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD65C171939F92CC429B6051 /* ExpenseDetailView.swift */; };
+		3856AED4E21220AA04E8C0C0 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DDE4E82FBFE5D792B9435DC /* MessagesView.swift */; };
 		3FFF41EB498A2C2EBDEA44B0 /* CPUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328FC66E7172CFFE2F7D1C81 /* CPUser.swift */; };
+		5AEBB0BBB1863B5A8D876796 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3582BB12CAC7D17F1979B0E /* Message.swift */; };
 		5BA7FC777C1D05ECCE14BE96 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5C43D63A51FB2A5FA9B50E /* AppConstants.swift */; };
 		5F354BFA623E3A297744EBC7 /* AuthDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3F754876530E47B06CB1B9 /* AuthDTO.swift */; };
+		62D590A1ECF9A29074C15A0E /* MessagesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D1AAF44685EE363C0482BA4 /* MessagesViewModel.swift */; };
 		6580C9199356F26654C84713 /* CoParentConnectApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E8A2EE6F28C0597FD5783E /* CoParentConnectApp.swift */; };
 		659C7AE0BABA131E82CED675 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9BA848DF8159ECE8C1D69AD /* NetworkMonitor.swift */; };
+		6AE20B8E619986E08708297C /* Expense.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D5128044340E339E848A3E /* Expense.swift */; };
+		700846824DD8A417ECFFA79F /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42B654285923DBE85904B4E /* CalendarView.swift */; };
+		72E9F4D475D0F9D5248B659D /* ExpensesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827BEF35E98E763923CF6F65 /* ExpensesViewModel.swift */; };
+		7CD470F57C824D480FA63EA3 /* ExpensesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A60DA20AC28EDA489DD02A /* ExpensesView.swift */; };
 		8DF0C1498E3D0BBBC8B3BF9A /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45C15F67A1C6E3107A824FF /* KeychainService.swift */; };
 		97D86FFD045E3CBE0FA5E086 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00ABE4C26C6195A822EECA84 /* MainTabView.swift */; };
 		9979BD744E8D99C7B9E8F5D0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FAD9F8AB29C6657485296E /* AppDelegate.swift */; };
 		ABA47584546A8701DCF45C64 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3789B1CBB124D5794968CAD2 /* LoginView.swift */; };
 		BAFA44A335B1C986558B4FC0 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744628526194C28DC17CF272 /* APIClient.swift */; };
 		C5ED156C7F514F2B262E2148 /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BE4B6DB88E785A35580EDDF /* RegisterView.swift */; };
+		C8BECA982286C43E71E4E7C1 /* DocumentsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5CD6FFB37D3CC9436770B1 /* DocumentsViewModel.swift */; };
+		C904CE8AEFC72F61754CDD4B /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 934743560324031CDC0E9CD2 /* Document.swift */; };
 		D3676E5C4CE4401EF19FDE77 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8F23E59540C7C5ABBD0C25 /* ContentView.swift */; };
+		D5F90517E966967B39BC1830 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D28AC2088BEC22C0EC3F229D /* CalendarViewModel.swift */; };
 		D733B2919B2A26FE91C791B6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91222748A2B61D61F4C591BE /* Assets.xcassets */; };
 		D82547E2A9A6E65122004A44 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B1DFD6724274694E3CAB2A4 /* AuthService.swift */; };
+		E368874B73D45F2A63F4EF95 /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F9767F5C7D524F02B4E554 /* Event.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		00ABE4C26C6195A822EECA84 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		07A60DA20AC28EDA489DD02A /* ExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpensesView.swift; sourceTree = "<group>"; };
+		1F5CD6FFB37D3CC9436770B1 /* DocumentsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsViewModel.swift; sourceTree = "<group>"; };
 		2B8F6E2116DF63BD96F11837 /* APIEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoints.swift; sourceTree = "<group>"; };
 		328FC66E7172CFFE2F7D1C81 /* CPUser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPUser.swift; sourceTree = "<group>"; };
 		3789B1CBB124D5794968CAD2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		3B1DFD6724274694E3CAB2A4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		3DDE4E82FBFE5D792B9435DC /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
+		45F9767F5C7D524F02B4E554 /* Event.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event.swift; sourceTree = "<group>"; };
+		47282ADFFBEC6F63B953161A /* DocumentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsView.swift; sourceTree = "<group>"; };
 		48AE50BB90BB865AFB164D76 /* CoParentConnect.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoParentConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6BE4B6DB88E785A35580EDDF /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
 		744628526194C28DC17CF272 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		827BEF35E98E763923CF6F65 /* ExpensesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpensesViewModel.swift; sourceTree = "<group>"; };
+		85C7FD7068C6B1C05BEF3FE4 /* CalendarEventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventDetailView.swift; sourceTree = "<group>"; };
 		91222748A2B61D61F4C591BE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9134D5482A72007962CA583E /* UploadDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadDocumentView.swift; sourceTree = "<group>"; };
+		934743560324031CDC0E9CD2 /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		9D1AAF44685EE363C0482BA4 /* MessagesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewModel.swift; sourceTree = "<group>"; };
+		A3582BB12CAC7D17F1979B0E /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
 		A5443CF1544081E7C2011A3D /* CoParentConnect.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoParentConnect.entitlements; sourceTree = "<group>"; };
 		BD3F754876530E47B06CB1B9 /* AuthDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthDTO.swift; sourceTree = "<group>"; };
 		CA5C43D63A51FB2A5FA9B50E /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
 		CC6C274B48479A31EE95C46D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D1FAD9F8AB29C6657485296E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		D28AC2088BEC22C0EC3F229D /* CalendarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarViewModel.swift; sourceTree = "<group>"; };
 		D9BA848DF8159ECE8C1D69AD /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		DAD724582A37FFDAACD68925 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
+		DD65C171939F92CC429B6051 /* ExpenseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseDetailView.swift; sourceTree = "<group>"; };
+		E763842156D12509411C3FBA /* CreateExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateExpenseView.swift; sourceTree = "<group>"; };
 		E7E8A2EE6F28C0597FD5783E /* CoParentConnectApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoParentConnectApp.swift; sourceTree = "<group>"; };
 		EB8F23E59540C7C5ABBD0C25 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F0D5128044340E339E848A3E /* Expense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Expense.swift; sourceTree = "<group>"; };
+		F42B654285923DBE85904B4E /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		F45C15F67A1C6E3107A824FF /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		F9DF74F3C594DEBDED79D002 /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -101,6 +135,17 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		70F3E2AE77557FD4CBD46113 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D28AC2088BEC22C0EC3F229D /* CalendarViewModel.swift */,
+				1F5CD6FFB37D3CC9436770B1 /* DocumentsViewModel.swift */,
+				827BEF35E98E763923CF6F65 /* ExpensesViewModel.swift */,
+				9D1AAF44685EE363C0482BA4 /* MessagesViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
 		7D33F6A4FCDC82673FE487A8 /* Core */ = {
 			isa = PBXGroup;
 			children = (
@@ -135,6 +180,10 @@
 			isa = PBXGroup;
 			children = (
 				328FC66E7172CFFE2F7D1C81 /* CPUser.swift */,
+				934743560324031CDC0E9CD2 /* Document.swift */,
+				45F9767F5C7D524F02B4E554 /* Event.swift */,
+				F0D5128044340E339E848A3E /* Expense.swift */,
+				A3582BB12CAC7D17F1979B0E /* Message.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -156,6 +205,7 @@
 				8DC4A424AC291BBCFF262C30 /* Networking */,
 				F4368BCBA851DA3D5E1364F3 /* Resources */,
 				9A3E5C2216F761228B53BD83 /* Services */,
+				70F3E2AE77557FD4CBD46113 /* ViewModels */,
 				BC5E0DA993F96F5DB756F436 /* Views */,
 				35D748BDEB83F080C387BECB /* Products */,
 			);
@@ -195,6 +245,15 @@
 		F3E135A516F58D2F0B7EC663 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				85C7FD7068C6B1C05BEF3FE4 /* CalendarEventDetailView.swift */,
+				F42B654285923DBE85904B4E /* CalendarView.swift */,
+				F9DF74F3C594DEBDED79D002 /* CreateEventView.swift */,
+				E763842156D12509411C3FBA /* CreateExpenseView.swift */,
+				47282ADFFBEC6F63B953161A /* DocumentsView.swift */,
+				DD65C171939F92CC429B6051 /* ExpenseDetailView.swift */,
+				07A60DA20AC28EDA489DD02A /* ExpensesView.swift */,
+				3DDE4E82FBFE5D792B9435DC /* MessagesView.swift */,
+				9134D5482A72007962CA583E /* UploadDocumentView.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -209,9 +268,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_5B5B6411-6782-4DA4-A48A-445ACCF15FBC" /* CoParentConnect */ = {
+		"TEMP_83D29BC0-624C-4135-A458-9EEE2FE2ECA7" /* CoParentConnect */ = {
 			isa = PBXGroup;
 			children = (
+				70F3E2AE77557FD4CBD46113 /* ViewModels */,
 				7D33F6A4FCDC82673FE487A8 /* Core */,
 				C4F883A214451E0BBE825C7A /* App */,
 				8DC4A424AC291BBCFF262C30 /* Networking */,
@@ -254,7 +314,7 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					819D57551EA31A9C8D379E73 = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = SP337KYTD8;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -301,14 +361,31 @@
 				5F354BFA623E3A297744EBC7 /* AuthDTO.swift in Sources */,
 				D82547E2A9A6E65122004A44 /* AuthService.swift in Sources */,
 				3FFF41EB498A2C2EBDEA44B0 /* CPUser.swift in Sources */,
+				0728E3A8FE988549C1D3335C /* CalendarEventDetailView.swift in Sources */,
+				700846824DD8A417ECFFA79F /* CalendarView.swift in Sources */,
+				D5F90517E966967B39BC1830 /* CalendarViewModel.swift in Sources */,
 				6580C9199356F26654C84713 /* CoParentConnectApp.swift in Sources */,
 				19EB0789D763DF099DD98AA1 /* Colors.swift in Sources */,
 				D3676E5C4CE4401EF19FDE77 /* ContentView.swift in Sources */,
+				1CFFDB01DAA332DCA3325520 /* CreateEventView.swift in Sources */,
+				0A18EB080D8FF6EC61EFE429 /* CreateExpenseView.swift in Sources */,
+				C904CE8AEFC72F61754CDD4B /* Document.swift in Sources */,
+				184E831678638B33AE614492 /* DocumentsView.swift in Sources */,
+				C8BECA982286C43E71E4E7C1 /* DocumentsViewModel.swift in Sources */,
+				E368874B73D45F2A63F4EF95 /* Event.swift in Sources */,
+				6AE20B8E619986E08708297C /* Expense.swift in Sources */,
+				25D5A0D674009EEB3A9308C2 /* ExpenseDetailView.swift in Sources */,
+				7CD470F57C824D480FA63EA3 /* ExpensesView.swift in Sources */,
+				72E9F4D475D0F9D5248B659D /* ExpensesViewModel.swift in Sources */,
 				8DF0C1498E3D0BBBC8B3BF9A /* KeychainService.swift in Sources */,
 				ABA47584546A8701DCF45C64 /* LoginView.swift in Sources */,
 				97D86FFD045E3CBE0FA5E086 /* MainTabView.swift in Sources */,
+				5AEBB0BBB1863B5A8D876796 /* Message.swift in Sources */,
+				3856AED4E21220AA04E8C0C0 /* MessagesView.swift in Sources */,
+				62D590A1ECF9A29074C15A0E /* MessagesViewModel.swift in Sources */,
 				659C7AE0BABA131E82CED675 /* NetworkMonitor.swift in Sources */,
 				C5ED156C7F514F2B262E2148 /* RegisterView.swift in Sources */,
+				1D178D817869F00F7BFE9B9C /* UploadDocumentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

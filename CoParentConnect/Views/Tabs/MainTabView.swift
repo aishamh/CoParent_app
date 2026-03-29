@@ -12,13 +12,13 @@ struct MainTabView: View {
             .tag(0)
 
             NavigationStack {
-                CalendarPlaceholderView()
+                CalendarView()
             }
             .tabItem { Label("Calendar", systemImage: "calendar") }
             .tag(1)
 
             NavigationStack {
-                MessagesPlaceholderView()
+                MessagesView()
             }
             .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right") }
             .tag(2)
@@ -30,7 +30,7 @@ struct MainTabView: View {
             .tag(3)
 
             NavigationStack {
-                MorePlaceholderView()
+                MoreView()
             }
             .tabItem { Label("More", systemImage: "ellipsis.circle") }
             .tag(4)
@@ -155,9 +155,52 @@ struct DiscoverPlaceholderView: View {
     }
 }
 
-struct MorePlaceholderView: View {
+struct MoreView: View {
+    @Environment(AuthService.self) private var auth
+
     var body: some View {
-        ContentUnavailableView("More", systemImage: "ellipsis.circle", description: Text("Coming in Phase 5"))
-            .navigationTitle("More")
+        List {
+            Section {
+                NavigationLink {
+                    ExpensesView()
+                } label: {
+                    Label("Expenses", systemImage: "creditcard.fill")
+                        .foregroundStyle(Color.cpForeground)
+                }
+
+                NavigationLink {
+                    DocumentsView()
+                } label: {
+                    Label("Documents", systemImage: "doc.text.fill")
+                        .foregroundStyle(Color.cpForeground)
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    SettingsPlaceholderView()
+                } label: {
+                    Label("Settings", systemImage: "gearshape.fill")
+                        .foregroundStyle(Color.cpForeground)
+                }
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    _Concurrency.Task { await auth.signOut() }
+                } label: {
+                    Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
+        }
+        .navigationTitle("More")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+struct SettingsPlaceholderView: View {
+    var body: some View {
+        ContentUnavailableView("Settings", systemImage: "gearshape", description: Text("Coming soon"))
+            .navigationTitle("Settings")
     }
 }

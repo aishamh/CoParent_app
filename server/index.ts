@@ -13,6 +13,21 @@ import {
 } from "./middleware/security";
 import { setupWebSocket } from "./websocket";
 
+// Validate required environment variables at startup
+const REQUIRED_ENV_VARS = ["DATABASE_URL", "JWT_SECRET"];
+
+function validateEnv(): void {
+  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(
+      `FATAL: Missing required environment variables: ${missing.join(", ")}`
+    );
+    process.exit(1);
+  }
+}
+
+validateEnv();
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -92,5 +107,28 @@ setupWebSocket(httpServer);
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(port, () => {
     log(`serving on port ${port}`);
+  });
+
+  // Graceful shutdown handler
+  function gracefulShutdown(signal: string): void {
+    log(`${signal} received — shutting down gracefully`);
+    httpServer.close(() => {
+      log("HTTP server closed");
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds if connections won't drain
+    setTimeout(() => {
+      log("Forcing shutdown after timeout");
+      process.exit(1);
+    }, 10_000).unref();
+  }
+
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+  // Catch unhandled rejections so the process doesn't crash silently
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled rejection:", reason);
   });
 })();
