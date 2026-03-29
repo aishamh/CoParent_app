@@ -279,7 +279,7 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_CD8281F3-6A5E-482B-82A1-3A5FB8798AC9" /* CoParentConnect */ = {
+		"TEMP_612356D6-7A69-4046-B07D-7C7F0FD9D76A" /* CoParentConnect */ = {
 			isa = PBXGroup;
 			children = (
 				70F3E2AE77557FD4CBD46113 /* ViewModels */,
