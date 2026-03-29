@@ -59,66 +59,48 @@ export const securityHeaders = (
   next();
 };
 
-// Rate limiting store (in-memory for development)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+// Rate limiting — Redis-backed with in-memory fallback
+import { checkRateLimit } from '../redis';
 
 interface RateLimitOptions {
   windowMs: number;
   maxRequests: number;
   message?: string;
+  prefix?: string;
 }
 
 export const rateLimiter = (options: RateLimitOptions) => {
-  const { windowMs, maxRequests, message = 'Too many requests, please try again later.' } = options;
+  const {
+    windowMs,
+    maxRequests,
+    message = 'Too many requests, please try again later.',
+    prefix = 'rl',
+  } = options;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    // Skip rate limiting in development if needed
     if (process.env.NODE_ENV === 'development' && process.env.RATE_LIMIT_DISABLED === 'true') {
       return next();
     }
 
     const identifier = req.ip || 'unknown';
-    const currentTime = Date.now();
+    const key = `${prefix}:${identifier}`;
 
-    // Clean up expired entries
-    Array.from(rateLimitStore.entries()).forEach(([key, value]) => {
-      if (currentTime > value.resetTime) {
-        rateLimitStore.delete(key);
-      }
-    });
+    checkRateLimit(key, windowMs, maxRequests)
+      .then(({ allowed, remaining, retryAfterMs }) => {
+        res.setHeader('X-RateLimit-Remaining', remaining.toString());
 
-    // Get or create rate limit data for this identifier
-    const record = rateLimitStore.get(identifier);
+        if (!allowed) {
+          const retryAfter = Math.ceil(retryAfterMs / 1000);
+          res.setHeader('Retry-After', retryAfter.toString());
+          return res.status(429).json({ error: message, retryAfter });
+        }
 
-    if (!record) {
-      // First request in window
-      rateLimitStore.set(identifier, {
-        count: 1,
-        resetTime: currentTime + windowMs,
+        next();
+      })
+      .catch(() => {
+        // If rate-limit check fails entirely, allow the request through
+        next();
       });
-      return next();
-    }
-
-    if (currentTime > record.resetTime) {
-      // Window has expired, reset
-      record.count = 1;
-      record.resetTime = currentTime + windowMs;
-      return next();
-    }
-
-    if (record.count >= maxRequests) {
-      // Rate limit exceeded
-      const retryAfter = Math.ceil((record.resetTime - currentTime) / 1000);
-      res.setHeader('Retry-After', retryAfter.toString());
-      return res.status(429).json({
-        error: message,
-        retryAfter,
-      });
-    }
-
-    // Increment counter
-    record.count++;
-    next();
   };
 };
 

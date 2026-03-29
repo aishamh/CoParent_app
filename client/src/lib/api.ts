@@ -157,6 +157,10 @@ export async function updateFriend(id: number, updates: Partial<Friend>): Promis
   try { return await fetchApi(`/api/friends/${id}`, { method: "PATCH", body: JSON.stringify(updates) }); } catch { return null; }
 }
 
+export async function deleteFriend(id: number): Promise<boolean> {
+  try { await fetchApi(`/api/friends/${id}`, { method: "DELETE" }); return true; } catch { return false; }
+}
+
 // --- Social Events ---
 export async function getSocialEvents(): Promise<SocialEvent[]> {
   try { return await fetchApi("/api/social-events"); } catch { return []; }
@@ -314,6 +318,7 @@ export const api = {
   getFriends,
   createFriend,
   updateFriend,
+  deleteFriend,
   getSocialEvents,
   createSocialEvent,
   updateSocialEvent,

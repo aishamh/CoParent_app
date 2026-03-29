@@ -1,21 +1,32 @@
 services:
-  # Web Service (Backend + Frontend)
   - type: web
-    name: coparent-app
-    env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    name: coparent-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build:server
+    startCommand: node dist/server.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5001
-    healthCheckPath: /api/children
+        value: "10000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: coparent-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: coparent-redis
+          type: redis
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://co-parent-app-mu.vercel.app
 
-  # Persistent Disk for SQLite Database
-  - type: pserv
-    name: data
-    disk:
-      name: data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
+  - type: redis
+    name: coparent-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # Only internal access

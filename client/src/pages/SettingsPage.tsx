@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,10 +15,58 @@ import { useAuth } from "@/contexts/AuthContext";
 import { User, Bell, Shield, Palette, Globe, Download, AlertTriangle, Users } from "lucide-react";
 import { api } from "@/lib/api";
 
+// --- API helpers for endpoints not yet in api.ts ---
+
+async function fetchNotificationPreferences(): Promise<Record<string, boolean>> {
+  const token = localStorage.getItem("coparent_token");
+  const res = await fetch("/api/notification-preferences", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to fetch notification preferences");
+  return res.json();
+}
+
+async function updateNotificationPreferences(data: Record<string, boolean>): Promise<Record<string, boolean>> {
+  const token = localStorage.getItem("coparent_token");
+  const res = await fetch("/api/notification-preferences", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update notification preferences");
+  return res.json();
+}
+
+async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const token = localStorage.getItem("coparent_token");
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || "Failed to change password");
+  }
+}
+
+async function deleteAccount(): Promise<void> {
+  const token = localStorage.getItem("coparent_token");
+  const res = await fetch("/api/auth/account", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || "Failed to delete account");
+  }
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Dialog states
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -38,8 +87,8 @@ export default function SettingsPage() {
 
   // User Profile Settings
   const [profile, setProfile] = useState({
-    name: "Parent User",
-    email: "parent@example.com",
+    name: "",
+    email: "",
     phone: "",
     timezone: "America/New_York"
   });
@@ -69,19 +118,67 @@ export default function SettingsPage() {
     currency: "USD"
   });
 
-  // Load parent names on mount
+  // --- Load profile from API ---
+  const profileQuery = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => api.getProfile(user?.id ?? ""),
+    enabled: !!user,
+  });
+
   useEffect(() => {
-    if (user) {
-      api.getProfile(user.id).then((profile) => {
-        if (profile) {
-          setParentNames({
-            parentAName: profile.parent_a_name || "Parent A",
-            parentBName: profile.parent_b_name || "Parent B"
-          });
-        }
+    if (profileQuery.data) {
+      const p = profileQuery.data;
+      setProfile({
+        name: p.name || "",
+        email: p.email || "",
+        phone: (p as Record<string, unknown>).phone as string || "",
+        timezone: (p as Record<string, unknown>).timezone as string || "America/New_York",
       });
+      setParentNames({
+        parentAName: p.parent_a_name || "Parent A",
+        parentBName: p.parent_b_name || "Parent B",
+      });
+      // Restore privacy and app settings from profile if stored there
+      const privacySettings = (p as Record<string, unknown>).privacy_settings as Record<string, boolean> | undefined;
+      if (privacySettings) {
+        setPrivacy((prev) => ({ ...prev, ...privacySettings }));
+      }
+      const appPrefs = (p as Record<string, unknown>).app_settings as Record<string, string> | undefined;
+      if (appPrefs) {
+        setAppSettings((prev) => ({ ...prev, ...appPrefs }));
+      }
     }
-  }, [user]);
+  }, [profileQuery.data]);
+
+  // --- Load notification preferences from API ---
+  const notificationsQuery = useQuery({
+    queryKey: ["notificationPreferences"],
+    queryFn: fetchNotificationPreferences,
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (notificationsQuery.data) {
+      setNotifications((prev) => ({ ...prev, ...notificationsQuery.data }));
+    }
+  }, [notificationsQuery.data]);
+
+  // --- Profile mutation ---
+  const profileMutation = useMutation({
+    mutationFn: (updates: Record<string, unknown>) =>
+      api.updateProfile(user?.id ?? "", updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+
+  // --- Notification preferences mutation ---
+  const notificationsMutation = useMutation({
+    mutationFn: updateNotificationPreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notificationPreferences"] });
+    },
+  });
 
   const handleSaveParentNames = async () => {
     if (!user) return;
@@ -91,6 +188,7 @@ export default function SettingsPage() {
         parent_a_name: parentNames.parentAName,
         parent_b_name: parentNames.parentBName
       });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast({
         title: "Parent names updated",
         description: "Your custom parent names have been saved.",
@@ -104,39 +202,92 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profile updated",
-      description: "Your profile settings have been saved successfully.",
-    });
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    try {
+      await profileMutation.mutateAsync({
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        timezone: profile.timezone,
+      });
+      toast({
+        title: "Profile updated",
+        description: "Your profile settings have been saved successfully.",
+      });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+      });
+    }
   };
 
-  const handleSaveNotifications = () => {
-    toast({
-      title: "Notifications updated",
-      description: "Your notification preferences have been saved.",
-    });
+  const handleSaveNotifications = async () => {
+    try {
+      await notificationsMutation.mutateAsync(notifications);
+      toast({
+        title: "Notifications updated",
+        description: "Your notification preferences have been saved.",
+      });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update notification preferences. Please try again.",
+      });
+    }
   };
 
-  const handleSavePrivacy = () => {
-    toast({
-      title: "Privacy settings updated",
-      description: "Your privacy preferences have been saved.",
-    });
+  const handleSavePrivacy = async () => {
+    if (!user) return;
+
+    try {
+      await profileMutation.mutateAsync({
+        privacy_settings: privacy,
+      });
+      toast({
+        title: "Privacy settings updated",
+        description: "Your privacy preferences have been saved.",
+      });
+    } catch {
+      // Fall back to localStorage if backend doesn't support privacy_settings yet
+      localStorage.setItem("coparent_privacy_settings", JSON.stringify(privacy));
+      toast({
+        title: "Privacy settings updated",
+        description: "Your privacy preferences have been saved locally.",
+      });
+    }
   };
 
-  const handleSaveAppSettings = () => {
-    toast({
-      title: "App settings updated",
-      description: "Your app preferences have been saved.",
-    });
+  const handleSaveAppSettings = async () => {
+    if (!user) return;
+
+    try {
+      await profileMutation.mutateAsync({
+        app_settings: appSettings,
+      });
+      toast({
+        title: "App settings updated",
+        description: "Your app preferences have been saved.",
+      });
+    } catch {
+      // Fall back to localStorage if backend doesn't support app_settings yet
+      localStorage.setItem("coparent_app_settings", JSON.stringify(appSettings));
+      toast({
+        title: "App settings updated",
+        description: "Your app preferences have been saved locally.",
+      });
+    }
   };
 
   const handleThemeChange = (value: string) => {
     setTheme(value as "light" | "dark" | "auto");
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate
@@ -167,21 +318,29 @@ export default function SettingsPage() {
       return;
     }
 
-    // Simulate password change (in real app, this would call an API)
-    toast({
-      title: "Password Changed",
-      description: "Your password has been updated successfully.",
-    });
-    setIsPasswordDialogOpen(false);
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    });
+    try {
+      await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      });
+      setIsPasswordDialogOpen(false);
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to change password";
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      });
+    }
   };
 
   const handleExportData = () => {
-    // Simulate data export (in real app, this would call an API)
     const exportData = {
       profile,
       notifications,
@@ -207,18 +366,28 @@ export default function SettingsPage() {
     });
   };
 
-  const handleDeleteAccount = () => {
-    // Simulate account deletion (in real app, this would call an API)
-    toast({
-      title: "Account Deleted",
-      description: "Your account has been permanently deleted.",
-    });
-    setIsDeleteDialogOpen(false);
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted.",
+      });
+      setIsDeleteDialogOpen(false);
+      localStorage.removeItem("coparent_token");
 
-    // Redirect to login after a short delay
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 1500);
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete account";
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      });
+    }
   };
 
   return (
@@ -285,7 +454,13 @@ export default function SettingsPage() {
                 </Select>
               </div>
             </div>
-            <Button onClick={handleSaveProfile} className="bg-teal-600 hover:bg-teal-700">Save Profile</Button>
+            <Button
+              onClick={handleSaveProfile}
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={profileMutation.isPending}
+            >
+              {profileMutation.isPending ? "Saving..." : "Save Profile"}
+            </Button>
           </CardContent>
         </Card>
 
@@ -406,7 +581,13 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => setNotifications({ ...notifications, dailyDigest: checked })}
               />
             </div>
-            <Button onClick={handleSaveNotifications} className="bg-teal-600 hover:bg-teal-700">Save Notification Settings</Button>
+            <Button
+              onClick={handleSaveNotifications}
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={notificationsMutation.isPending}
+            >
+              {notificationsMutation.isPending ? "Saving..." : "Save Notification Settings"}
+            </Button>
           </CardContent>
         </Card>
 
@@ -463,7 +644,13 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => setPrivacy({ ...privacy, allowMessaging: checked })}
               />
             </div>
-            <Button onClick={handleSavePrivacy} className="bg-teal-600 hover:bg-teal-700">Save Privacy Settings</Button>
+            <Button
+              onClick={handleSavePrivacy}
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={profileMutation.isPending}
+            >
+              {profileMutation.isPending ? "Saving..." : "Save Privacy Settings"}
+            </Button>
           </CardContent>
         </Card>
 
@@ -534,7 +721,13 @@ export default function SettingsPage() {
                 </Select>
               </div>
             </div>
-            <Button onClick={handleSaveAppSettings} className="bg-teal-600 hover:bg-teal-700">Save App Settings</Button>
+            <Button
+              onClick={handleSaveAppSettings}
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={profileMutation.isPending}
+            >
+              {profileMutation.isPending ? "Saving..." : "Save App Settings"}
+            </Button>
           </CardContent>
         </Card>
 

@@ -1,11 +1,16 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import type { User } from '../shared/schema';
 import type { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
+import { db } from './db';
+import { refreshTokens } from './tables';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const SALT_ROUNDS = 10;
-const JWT_EXPIRES_IN = '24h';
+const JWT_EXPIRES_IN = '15m';
+const REFRESH_TOKEN_DAYS = 30;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -23,9 +28,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export function sanitizeUser(user: User): Omit<User, 'password'> {
-  const { password, ...userWithoutPassword } = user;
-  return userWithoutPassword;
+export function sanitizeUser(user: User): Omit<User, 'password' | 'apple_user_identifier'> {
+  const { password, apple_user_identifier, ...safe } = user;
+  return safe;
 }
 
 export function generateToken(userId: string): string {
@@ -39,6 +44,135 @@ export function verifyToken(token: string): { userId: string } | null {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Refresh token management
+// ---------------------------------------------------------------------------
+
+function hashRefreshToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Generate a cryptographically secure refresh token, store its hash in DB,
+ * and return the raw token (sent to client, never stored server-side).
+ */
+export async function generateRefreshToken(
+  userId: string,
+  deviceInfo?: string,
+  familyId?: string,
+): Promise<{ refreshToken: string; familyId: string }> {
+  const rawToken = crypto.randomBytes(64).toString('base64url');
+  const tokenHash = hashRefreshToken(rawToken);
+  const family = familyId ?? crypto.randomUUID();
+
+  const expiresAt = new Date(
+    Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  await db.insert(refreshTokens).values({
+    user_id: userId,
+    token_hash: tokenHash,
+    family_id: family,
+    device_info: deviceInfo ?? null,
+    expires_at: expiresAt,
+  });
+
+  return { refreshToken: rawToken, familyId: family };
+}
+
+/**
+ * Rotate a refresh token: verify the old one, issue a new one in the same
+ * family, and mark the old one as replaced. If the old token has already been
+ * used (replay attack), revoke the entire family.
+ */
+export async function rotateRefreshToken(
+  oldToken: string,
+  deviceInfo?: string,
+): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  userId: string;
+} | null> {
+  const tokenHash = hashRefreshToken(oldToken);
+
+  const [existing] = await db
+    .select()
+    .from(refreshTokens)
+    .where(eq(refreshTokens.token_hash, tokenHash))
+    .limit(1);
+
+  if (!existing) return null;
+
+  // Already revoked or replaced → replay attack → revoke entire family
+  if (existing.revoked_at || existing.replaced_by) {
+    await revokeRefreshTokenFamily(existing.family_id);
+    return null;
+  }
+
+  // Expired
+  if (new Date(existing.expires_at) < new Date()) {
+    await db
+      .update(refreshTokens)
+      .set({ revoked_at: new Date().toISOString() })
+      .where(eq(refreshTokens.id, existing.id));
+    return null;
+  }
+
+  // Issue new tokens
+  const accessToken = generateToken(existing.user_id);
+  const { refreshToken: newRefreshToken } = await generateRefreshToken(
+    existing.user_id,
+    deviceInfo,
+    existing.family_id,
+  );
+
+  // Mark old token as replaced
+  const newTokenHash = hashRefreshToken(newRefreshToken);
+  await db
+    .update(refreshTokens)
+    .set({
+      replaced_by: newTokenHash,
+      revoked_at: new Date().toISOString(),
+    })
+    .where(eq(refreshTokens.id, existing.id));
+
+  return {
+    accessToken,
+    refreshToken: newRefreshToken,
+    userId: existing.user_id,
+  };
+}
+
+/** Revoke all tokens in a family chain (used on logout or replay detection). */
+export async function revokeRefreshTokenFamily(familyId: string): Promise<void> {
+  await db
+    .update(refreshTokens)
+    .set({ revoked_at: new Date().toISOString() })
+    .where(
+      and(
+        eq(refreshTokens.family_id, familyId),
+        isNull(refreshTokens.revoked_at),
+      ),
+    );
+}
+
+/** Revoke all refresh tokens for a user (e.g., password change). */
+export async function revokeAllUserRefreshTokens(userId: string): Promise<void> {
+  await db
+    .update(refreshTokens)
+    .set({ revoked_at: new Date().toISOString() })
+    .where(
+      and(
+        eq(refreshTokens.user_id, userId),
+        isNull(refreshTokens.revoked_at),
+      ),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
 
 function extractToken(req: Request): string | null {
   const authHeader = req.headers.authorization;

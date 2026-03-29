@@ -11,6 +11,7 @@ import {
   apiRateLimiter,
   errorHandler,
 } from "./middleware/security";
+import { setupWebSocket } from "./websocket";
 
 const app = express();
 const httpServer = createServer(app);
@@ -59,6 +60,14 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Health check — must be before auth middleware
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Initialize WebSocket layer (attaches to httpServer)
+setupWebSocket(httpServer);
 
 (async () => {
   await registerRoutes(httpServer, app);

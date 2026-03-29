@@ -34,9 +34,11 @@ export const users = pgTable("users", {
   parent_b_name: text("parent_b_name"),
   venmo_username: text("venmo_username"),
   paypal_email: text("paypal_email"),
+  apple_user_identifier: text("apple_user_identifier"),
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 }, (table) => [
   index("idx_users_family_id").on(table.family_id),
+  index("idx_users_apple_id").on(table.apple_user_identifier),
 ]);
 
 export const children = pgTable("children", {
@@ -633,4 +635,24 @@ export const eventNotifications = pgTable("event_notifications", {
   index("idx_event_notifications_user_id").on(table.user_id),
   index("idx_event_notifications_scheduled_at").on(table.scheduled_at),
   index("idx_event_notifications_status").on(table.status),
+]);
+
+// ---------------------------------------------------------------------------
+// Refresh Tokens — secure token rotation with family-based revocation
+// ---------------------------------------------------------------------------
+
+export const refreshTokens = pgTable("refresh_tokens", {
+  id: text("id").primaryKey().$defaultFn(generateId),
+  user_id: text("user_id").notNull(),
+  token_hash: text("token_hash").notNull(),
+  family_id: text("family_id").notNull(),
+  device_info: text("device_info"),
+  expires_at: text("expires_at").notNull(),
+  revoked_at: text("revoked_at"),
+  replaced_by: text("replaced_by"),
+  created_at: text("created_at").notNull().$defaultFn(nowIso),
+}, (table) => [
+  index("idx_refresh_tokens_user_id").on(table.user_id),
+  index("idx_refresh_tokens_token_hash").on(table.token_hash),
+  index("idx_refresh_tokens_family_id").on(table.family_id),
 ]);

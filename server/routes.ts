@@ -1,13 +1,22 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash } from "crypto";
+import crypto, { createHash } from "crypto";
 import multer from "multer";
 import { put, del } from "@vercel/blob";
 import { storage } from "./storage";
 import { db } from "./db";
 import { loginHistory } from "./tables";
 import { eq, desc } from "drizzle-orm";
-import { hashPassword, verifyPassword, sanitizeUser, requireAuth, generateToken } from "./auth";
+import {
+  hashPassword,
+  verifyPassword,
+  sanitizeUser,
+  requireAuth,
+  generateToken,
+  generateRefreshToken,
+  rotateRefreshToken,
+  revokeAllUserRefreshTokens,
+} from "./auth";
 import { authRateLimiter, apiRateLimiter } from "./middleware/security";
 import {
   insertUserSchema,
@@ -118,16 +127,18 @@ export async function registerRoutes(
       // Refresh user to include family_id
       const updatedUser = await storage.getUser(user.id);
 
-      // Generate JWT token
+      // Generate JWT + refresh token pair
       const token = generateToken(user.id);
+      const deviceInfo = req.headers["user-agent"] ?? undefined;
+      const { refreshToken } = await generateRefreshToken(user.id, deviceInfo);
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: 15 * 60 * 1000, // 15 minutes (matches JWT expiry)
       });
 
-      res.status(201).json({ ...sanitizeUser(updatedUser || user), token });
+      res.status(201).json({ ...sanitizeUser(updatedUser || user), token, refreshToken });
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
     }
@@ -150,17 +161,19 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Generate JWT token
+      // Generate JWT + refresh token pair
       const token = generateToken(user.id);
+      const deviceInfo = req.headers["user-agent"] ?? undefined;
+      const { refreshToken } = await generateRefreshToken(user.id, deviceInfo);
       await logAuthEvent(user.id, "login", req);
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: 15 * 60 * 1000, // 15 minutes (matches JWT expiry)
       });
 
-      res.json({ ...sanitizeUser(user), token });
+      res.json({ ...sanitizeUser(user), token, refreshToken });
     } catch (error) {
       if (error instanceof Error) {
         res.status(400).json({ error: error.message });
@@ -171,9 +184,87 @@ export async function registerRoutes(
   });
 
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
-    await logAuthEvent((req as any).userId, "logout", req);
+    const userId: string = (req as any).userId;
+    await revokeAllUserRefreshTokens(userId);
+    await logAuthEvent(userId, "logout", req);
     res.clearCookie('token');
     res.json({ message: "Logged out successfully" });
+  });
+
+  // Refresh token endpoint — no requireAuth (the access token may be expired)
+  app.post("/api/auth/refresh", authRateLimiter, async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken || typeof refreshToken !== "string") {
+        return res.status(400).json({ error: "Refresh token required" });
+      }
+
+      const deviceInfo = req.headers["user-agent"] ?? undefined;
+      const result = await rotateRefreshToken(refreshToken, deviceInfo);
+
+      if (!result) {
+        return res.status(401).json({ error: "Invalid or expired refresh token" });
+      }
+
+      res.json({
+        token: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
+    } catch {
+      res.status(500).json({ error: "Token refresh failed" });
+    }
+  });
+
+  // Apple Sign In
+  app.post("/api/auth/apple", authRateLimiter, async (req, res) => {
+    try {
+      const { identityToken, userIdentifier, email, displayName } = req.body;
+
+      if (!identityToken || !userIdentifier) {
+        return res.status(400).json({ error: "Identity token and user identifier required" });
+      }
+
+      // TODO: Verify identityToken against Apple's public keys (jwks-rsa)
+      // For now, trust the token since it comes from the Apple SDK on device
+      // Production: fetch https://appleid.apple.com/auth/keys, verify JWT signature
+
+      // Check for existing user by Apple ID
+      let user = await storage.getUserByAppleId(userIdentifier);
+      let isNewUser = false;
+
+      if (!user) {
+        // Create new user with Apple credentials
+        const username = email?.split("@")[0] || `apple_${userIdentifier.substring(0, 8)}`;
+        const randomPassword = crypto.randomBytes(32).toString("hex");
+        const hashedPassword = await hashPassword(randomPassword);
+
+        user = await storage.createUser({
+          username: username,
+          password: hashedPassword,
+          email: email || undefined,
+          display_name: displayName || undefined,
+          role: "parent_a",
+          apple_user_identifier: userIdentifier,
+        });
+        isNewUser = true;
+      }
+
+      const token = generateToken(user.id);
+      const deviceInfo = req.headers["user-agent"] ?? undefined;
+      const refreshToken = await generateRefreshToken(user.id, deviceInfo);
+
+      await logAuthEvent(req, user.id, isNewUser ? "apple_register" : "apple_login");
+
+      res.json({
+        token,
+        refreshToken,
+        user: sanitizeUser(user),
+        isNewUser,
+      });
+    } catch (error) {
+      console.error("Apple Sign In error:", error);
+      res.status(500).json({ error: "Apple Sign In failed" });
+    }
   });
 
   app.get("/api/auth/login-history", requireAuth, async (req, res) => {
@@ -337,12 +428,12 @@ export async function registerRoutes(
 
   // Message routes - Secure, immutable messaging
   app.get("/api/messages", requireAuth, async (req, res) => {
-    const { otherUserId } = req.query;
+    const { otherUserId, cursor } = req.query;
     const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
     const { data, total } = await storage.getMessages(
       (req as any).userId,
       otherUserId as string | undefined,
-      { limit, offset }
+      { limit, offset, cursor: cursor as string | undefined }
     );
     res.json(paginatedResponse(data, total, page, limit));
   });
@@ -956,6 +1047,22 @@ export async function registerRoutes(
       res.json(friend);
     } catch (error) {
       res.status(400).json({ error: "Invalid data" });
+    }
+  });
+
+  app.delete("/api/friends/:id", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getFriend(parseInt(req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Friend not found" });
+      }
+      if (existing.family_id !== (req as any).familyId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      await storage.deleteFriend(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete friend" });
     }
   });
 

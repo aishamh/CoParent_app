@@ -30,6 +30,7 @@ export interface User {
   parent_b_name: string | null;
   venmo_username: string | null;
   paypal_email: string | null;
+  apple_user_identifier: string | null;
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ export const insertUserSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   display_name: z.string().nullable().optional(),
   role: z.string().default("parent_a"),
+  apple_user_identifier: z.string().nullable().optional(),
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 

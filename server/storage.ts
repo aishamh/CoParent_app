@@ -46,6 +46,7 @@ import { eq, and, or, gte, lte, desc, count, sql } from "drizzle-orm";
 export interface PaginationOptions {
   limit: number;
   offset: number;
+  cursor?: string;
 }
 
 export interface PaginatedResult<T> {
@@ -63,6 +64,7 @@ export interface IStorage {
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByAppleId(appleUserIdentifier: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
   // Children methods
@@ -88,6 +90,7 @@ export interface IStorage {
   getFriend(id: number): Promise<Friend | undefined>;
   createFriend(friend: InsertFriend): Promise<Friend>;
   updateFriend(id: number, friend: Partial<InsertFriend>): Promise<Friend | undefined>;
+  deleteFriend(id: number): Promise<boolean>;
 
   // Social Events methods
   getSocialEvents(familyId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<SocialEvent>>;
@@ -172,6 +175,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserByAppleId(appleUserIdentifier: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.apple_user_identifier, appleUserIdentifier));
     return user || undefined;
   }
 
@@ -320,6 +328,11 @@ export class DatabaseStorage implements IStorage {
   async updateFriend(id: number, friend: Partial<InsertFriend>): Promise<Friend | undefined> {
     const [updated] = await db.update(friends).set(friend).where(eq(friends.id, id)).returning();
     return updated || undefined;
+  }
+
+  async deleteFriend(id: number): Promise<boolean> {
+    const result = await db.delete(friends).where(eq(friends.id, id)).returning();
+    return result.length > 0;
   }
 
   // Social Events methods
@@ -501,12 +514,17 @@ export class DatabaseStorage implements IStorage {
 
   // Message methods
   async getMessages(userId: string, otherUserId?: string, pagination?: PaginationOptions): Promise<PaginatedResult<Message>> {
-    const whereClause = otherUserId
+    let whereClause = otherUserId
       ? or(
           and(eq(messages.sender_id, userId), eq(messages.receiver_id, otherUserId)),
           and(eq(messages.sender_id, otherUserId), eq(messages.receiver_id, userId))
         )
       : or(eq(messages.receiver_id, userId), eq(messages.sender_id, userId));
+
+    // Cursor-based pagination: filter by created_at < cursor
+    if (pagination?.cursor) {
+      whereClause = and(whereClause, sql`${messages.created_at} < ${pagination.cursor}`) as typeof whereClause;
+    }
 
     const [countResult] = await db
       .select({ total: count() })
@@ -515,7 +533,11 @@ export class DatabaseStorage implements IStorage {
 
     let query = db.select().from(messages).orderBy(desc(messages.created_at)).where(whereClause);
     if (pagination) {
-      query = query.limit(pagination.limit).offset(pagination.offset) as typeof query;
+      query = query.limit(pagination.limit) as typeof query;
+      // Use offset only when not using cursor pagination
+      if (!pagination.cursor) {
+        query = query.offset(pagination.offset) as typeof query;
+      }
     }
 
     const data = await query;
